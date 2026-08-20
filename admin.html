@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SafeGuard | Admin Panel</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+
+    <header class="topbar">
+
+        <div class="brand">
+
+            <div class="logo">
+                🛡️
+            </div>
+
+            <div>
+                <h1>SafeGuard</h1>
+                <p>Emergency Control Center</p>
+            </div>
+
+        </div>
+
+        <div class="system-status">
+            <span class="status-dot"></span>
+            System Online
+        </div>
+
+    </header>
+
+
+    <!-- Main -->
+
+    <main class="container">
+
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">
+                        ADMINISTRATION
+                    </span>
+
+                    <h2>
+                        Create Emergency Alert
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="admin-card">
+
+                <form id="alertForm">
+
+
+                    <!-- Disaster Type -->
+
+                    <div class="form-group">
+
+                        <label for="disaster">
+                            Disaster Type
+                        </label>
+
+                        <select id="disaster" required>
+
+                            <option value="">
+                                Select disaster
+                            </option>
+
+                            <option value="Flood">
+                                🌊 Flood
+                            </option>
+
+                            <option value="Cyclone">
+                                🌪️ Cyclone
+                            </option>
+
+                            <option value="Fire">
+                                🔥 Fire
+                            </option>
+
+                            <option value="Earthquake">
+                                🌍 Earthquake
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Location -->
+
+                    <div class="form-group">
+
+                        <label for="location">
+                            Affected Location
+                        </label>
+
+                        <input
+                            type="text"
+                            id="location"
+                            placeholder="Example: Kalamboli"
+                            required
+                        >
+
+                    </div>
+
+
+                    <!-- Severity -->
+
+                    <div class="form-group">
+
+                        <label for="severity">
+                            Severity Level
+                        </label>
+
+                        <select id="severity" required>
+
+                            <option value="">
+                                Select severity
+                            </option>
+
+                            <option value="Low">
+                                🟢 Low
+                            </option>
+
+                            <option value="Medium">
+                                🟠 Medium
+                            </option>
+
+                            <option value="High">
+                                🔴 High
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <!-- Message -->
+
+                    <div class="form-group">
+
+                        <label for="message">
+                            Emergency Message
+                        </label>
+
+                        <textarea
+                            id="message"
+                            rows="5"
+                            placeholder="Enter instructions for the community..."
+                            required
+                        ></textarea>
+
+                    </div>
+
+
+                    <!-- Buttons -->
+
+                    <div class="button-row">
+
+                        <button
+                            type="submit"
+                            class="send-button"
+                        >
+                            🚨 Send Alert
+                        </button>
+
+                        <button
+                            type="button"
+                            class="resolve-button"
+                            id="resolveAlert"
+                        >
+                            ✅ Resolve Alert
+                        </button>
+
+                        <button
+                            type="reset"
+                            class="reset-button"
+                        >
+                             Clear
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </section>
+
+
+        <!-- Information -->
+
+        <section class="section">
+
+            <div class="info-banner">
+
+                <div class="info-banner-icon">
+                    ℹ️
+                </div>
+
+                <div>
+
+                    <h3>
+                        Before sending an alert
+                    </h3>
+
+                    <p>
+                        Verify the disaster type, affected
+                        location, severity and emergency
+                        instructions before publishing the alert.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <footer>
+
+        <div>
+            <strong>SafeGuard</strong>
+            <p>
+                Emergency Management System
+            </p>
+        </div>
+
+        <p>
+            Authorized Personnel Only
+        </p>
+
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

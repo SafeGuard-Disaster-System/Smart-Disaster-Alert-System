@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>SafeGuard | Disaster Alert System</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="topbar">
+
+        <div class="brand">
+            <div class="logo">🛡️</div>
+
+            <div>
+                <h1>SafeGuard</h1>
+                <p>Community Disaster Alert System</p>
+            </div>
+        </div>
+
+        <div class="system-status">
+            <span class="status-dot"></span>
+            System Online
+        </div>
+
+    </header>
+
+
+    <!-- Main Content -->
+    <main class="container">
+
+        <!-- Welcome -->
+        <section class="hero">
+
+            <div>
+                <span class="badge">COMMUNITY SAFETY</span>
+
+                <h2>
+                    Stay informed.<br>
+                    Stay prepared.
+                </h2>
+
+                <p>
+                    Receive important disaster alerts, emergency
+                    information and safety instructions in one place.
+                </p>
+            </div>
+
+            <div class="hero-icon">
+                🚨
+            </div>
+
+        </section>
+
+
+        <!-- Current Alert -->
+        <section class="section">
+
+            <div class="section-title">
+                <div>
+                    <span class="small-title">LIVE MONITORING</span>
+                    <h2>Current Alert</h2>
+                </div>
+
+                <span class="normal-status" 
+                id="systemAlertStatus">
+                ● No Active Emergency
+                </span>
+            </div>
+
+
+            <div class="alert-card" id="alertBox">
+
+                <div class="alert-icon">
+                    ✓
+                </div>
+
+                <div class="alert-content">
+
+                    <h3>No Active Emergency</h3>
+
+                    <p>
+                        There are currently no active disaster
+                        warnings reported in your area.
+                    </p>
+
+                    <div class="alert-info">
+
+                        <span>
+                            📍 Your Area
+                        </span>
+
+                        <span>
+                            🕐 Updated Just Now
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div id="safetyInstructions" class="safety-box" style="display: none;">
+
+                <h3>🛡️ What You Should Do</h3>
+
+                <ul id="safetyList"></ul>
+
+            </div>
+
+        </section>
+
+
+        <!-- Safety Information -->
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">BE PREPARED</span>
+                    <h2>Emergency Preparedness</h2>
+                </div>
+
+            </div>
+
+
+            <div class="cards">
+
+                <div class="info-card">
+
+                    <div class="card-icon">🎒</div>
+
+                    <h3>Emergency Kit</h3>
+
+                    <p>
+                        Keep water, food, medicines, flashlight
+                        and important documents ready.
+                    </p>
+
+                </div>
+
+
+                <div class="info-card">
+
+                    <div class="card-icon">📍</div>
+
+                    <h3>Know Your Location</h3>
+
+                    <p>
+                        Know nearby shelters, hospitals and
+                        safe evacuation routes.
+                    </p>
+
+                </div>
+
+
+                <div class="info-card">
+
+                    <div class="card-icon">📱</div>
+
+                    <h3>Stay Connected</h3>
+
+                    <p>
+                        Keep your phone charged and monitor
+                        official emergency alerts.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- Emergency Contacts -->
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">NEED HELP?</span>
+                    <h2>Emergency Contacts</h2>
+                </div>
+
+            </div>
+
+
+            <div class="contacts">
+
+                <div class="contact">
+                    <span>🚔</span>
+
+                    <div>
+                        <h3>Police</h3>
+                        <p>Emergency assistance</p>
+                    </div>
+
+                    <strong>112</strong>
+                </div>
+
+
+                <div class="contact">
+                    <span>🚑</span>
+
+                    <div>
+                        <h3>Ambulance</h3>
+                        <p>Medical emergency</p>
+                    </div>
+
+                    <strong>108</strong>
+                </div>
+
+
+                <div class="contact">
+                    <span>🔥</span>
+
+                    <div>
+                        <h3>Fire & Rescue</h3>
+                        <p>Fire emergency</p>
+                    </div>
+
+                    <strong>101</strong>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <div>
+            <strong>SafeGuard</strong>
+            <p>Technology for a safer community.</p>
+        </div>
+
+        <p>
+            Community Engagement Project
+        </p>
+
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
