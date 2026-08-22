@@ -2,18 +2,30 @@
 <html lang="en">
 
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>SafeGuard | Admin Panel</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
 </head>
+
 
 <body>
 
-    <!-- Header -->
+
+    <!-- =====================================================
+         HEADER
+    ====================================================== -->
 
     <header class="topbar">
 
@@ -24,29 +36,49 @@
             </div>
 
             <div>
-                <h1>SafeGuard</h1>
-                <p>Emergency Control Center</p>
+
+                <h1>
+                    SafeGuard
+                </h1>
+
+                <p>
+                    Emergency Control Center
+                </p>
+
             </div>
 
         </div>
 
+
         <div class="system-status">
+
             <span class="status-dot"></span>
+
             System Online
+
         </div>
 
     </header>
 
 
-    <!-- Main -->
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
 
     <main class="container">
+
+
+        <!-- =================================================
+             CREATE ALERT
+        ================================================== -->
 
         <section class="section">
 
             <div class="section-title">
 
                 <div>
+
                     <span class="small-title">
                         ADMINISTRATION
                     </span>
@@ -54,6 +86,7 @@
                     <h2>
                         Create Emergency Alert
                     </h2>
+
                 </div>
 
             </div>
@@ -64,7 +97,7 @@
                 <form id="alertForm">
 
 
-                    <!-- Disaster Type -->
+                    <!-- DISASTER -->
 
                     <div class="form-group">
 
@@ -72,7 +105,11 @@
                             Disaster Type
                         </label>
 
-                        <select id="disaster" required>
+
+                        <select
+                            id="disaster"
+                            required
+                        >
 
                             <option value="">
                                 Select disaster
@@ -107,7 +144,8 @@
                     </div>
 
 
-                    <!-- Location -->
+
+                    <!-- LOCATION -->
 
                     <div class="form-group">
 
@@ -115,17 +153,20 @@
                             Affected Location
                         </label>
 
+
                         <input
                             type="text"
                             id="location"
                             placeholder="Example: Kalamboli"
+                            autocomplete="off"
                             required
                         >
 
                     </div>
 
 
-                    <!-- Severity -->
+
+                    <!-- SEVERITY -->
 
                     <div class="form-group">
 
@@ -133,7 +174,11 @@
                             Severity Level
                         </label>
 
-                        <select id="severity" required>
+
+                        <select
+                            id="severity"
+                            required
+                        >
 
                             <option value="">
                                 Select severity
@@ -156,13 +201,15 @@
                     </div>
 
 
-                    <!-- Message -->
+
+                    <!-- MESSAGE -->
 
                     <div class="form-group">
 
                         <label for="message">
                             Emergency Message
                         </label>
+
 
                         <textarea
                             id="message"
@@ -174,9 +221,11 @@
                     </div>
 
 
-                    <!-- Buttons -->
+
+                    <!-- BUTTONS -->
 
                     <div class="button-row">
+
 
                         <button
                             type="submit"
@@ -184,6 +233,7 @@
                         >
                             🚨 Send Alert
                         </button>
+
 
                         <button
                             type="button"
@@ -193,14 +243,17 @@
                             ✅ Resolve Alert
                         </button>
 
+
                         <button
                             type="reset"
                             class="reset-button"
                         >
-                             Clear
+                            Clear
                         </button>
 
+
                     </div>
+
 
                 </form>
 
@@ -209,7 +262,10 @@
         </section>
 
 
-        <!-- Information -->
+
+        <!-- =================================================
+             INFORMATION
+        ================================================== -->
 
         <section class="section">
 
@@ -219,16 +275,19 @@
                     ℹ️
                 </div>
 
+
                 <div>
 
                     <h3>
                         Before sending an alert
                     </h3>
 
+
                     <p>
                         Verify the disaster type, affected
                         location, severity and emergency
-                        instructions before publishing the alert.
+                        instructions before publishing
+                        the alert.
                     </p>
 
                 </div>
@@ -237,16 +296,22 @@
 
         </section>
 
-        <!-- ACTIVE ALERTS -->
+
+
+        <!-- =================================================
+             ACTIVE ALERTS
+        ================================================== -->
 
         <section class="section">
 
             <div class="section-title">
 
                 <div>
+
                     <span class="small-title">
                         LIVE CONTROL
                     </span>
+
 
                     <h2>
                         Active Alerts
@@ -270,55 +335,83 @@
 
         </section>
 
+
+
+        <!-- =================================================
+             ALERT HISTORY
+        ================================================== -->
+
         <section class="section">
 
             <div class="section-title">
 
                 <div>
+
                     <span class="small-title">
                         RECORDS
                     </span>
 
+
                     <h2>
                         Alert History
                     </h2>
+
                 </div>
 
             </div>
 
-        <div class="history-header">
 
-            <div id="alertHistory" class="history-list">
+            <div class="history-header">
 
-                <p class="empty-history">
-                    No previous alerts.
-                </p>
+
+                <div
+                    id="alertHistory"
+                    class="history-list"
+                >
+
+                    <p class="empty-history">
+                        No previous alerts.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="clear-history-button"
+                    id="clearHistory"
+                >
+                    🗑️ Clear History
+                </button>
+
 
             </div>
-
-            <button
-                type="button"
-                class="clear-history-button"
-                id="clearHistory"
-            >
-                🗑️ Clear History
-            </button>
-
-        </div>
 
         </section>
 
     </main>
 
 
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
     <footer>
 
         <div>
-            <strong>SafeGuard</strong>
+
+            <strong>
+                SafeGuard
+            </strong>
+
+
             <p>
                 Emergency Management System
             </p>
+
         </div>
+
 
         <p>
             Authorized Personnel Only
@@ -326,24 +419,65 @@
 
     </footer>
 
-    <script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"></script>
+
+
+    <!-- =====================================================
+         FIREBASE
+    ====================================================== -->
+
+    <script
+        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"
+    ></script>
+
+
+    <script
+        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"
+    ></script>
+
+
 
     <script>
+
         const firebaseConfig = {
-            apiKey: "AIzaSyCNwTeXvNskFtH5sKT4YSjk40PuWyKGoE",
-            authDomain: "safeguard-disaster-system.firebaseapp.com",
-            databaseURL: "https://safeguard-disaster-system-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "safeguard-disaster-system",
-            storageBucket: "safeguard-disaster-system.firebasestorage.app",
-            messagingSenderId: "690746267419",
-            appId: "1:690746267419:web:3b6c34e2dcd1481ceee5be"
+
+            apiKey:
+                "AIzaSyCNwTeXvNskFtH5sKT4YSjk40PuWyKGoE",
+
+            authDomain:
+                "safeguard-disaster-system.firebaseapp.com",
+
+            databaseURL:
+                "https://safeguard-disaster-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+            projectId:
+                "safeguard-disaster-system",
+
+            storageBucket:
+                "safeguard-disaster-system.firebasestorage.app",
+
+            messagingSenderId:
+                "690746267419",
+
+            appId:
+                "1:690746267419:web:3b6c34e2dcd1481ceee5be"
+
         };
 
-        firebase.initializeApp(firebaseConfig);
+
+        firebase.initializeApp(
+            firebaseConfig
+        );
+
     </script>
 
+
+
+    <!-- =====================================================
+         MAIN JAVASCRIPT
+    ====================================================== -->
+
     <script src="script.js"></script>
+
 
 </body>
 
