@@ -766,6 +766,23 @@
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
     </script>
 
+    <script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCNwTeXvNskFtH5sKT4YSjk40PuWyKGoE",
+            authDomain: "safeguard-disaster-system.firebaseapp.com",
+            databaseURL: "https://safeguard-disaster-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "safeguard-disaster-system",
+            storageBucket: "safeguard-disaster-system.firebasestorage.app",
+            messagingSenderId: "690746267419",
+            appId: "1:690746267419:web:3b6c34e2dcd1481ceee5be"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+    </script>
+
     <script src="script.js"></script>
 
 </body>
