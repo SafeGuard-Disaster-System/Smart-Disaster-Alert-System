@@ -1778,3 +1778,33 @@ footer p {
         text-align: center !important;
     }
 }
+/* FINAL MOBILE ALERT STACK FIX */
+
+@media screen and (max-width: 600px) {
+
+    #alertBox {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    }
+
+    #alertBox > * {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .multiple-alert {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+}
