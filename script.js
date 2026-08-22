@@ -981,3 +981,262 @@ function copyEmergencyNumber(number) {
 console.log(
     "🛡️ SafeGuard Firebase system loaded successfully."
 );
+
+// =====================================================
+// DISASTER LOCATION MAP
+// =====================================================
+
+let disasterMap = null;
+let disasterMarker = null;
+
+
+// Common locations for the project
+const locationCoordinates = {
+
+    "Kalamboli": [19.0169, 73.1009],
+
+    "Panvel": [18.9894, 73.1175],
+
+    "Navi Mumbai": [19.0330, 73.0297],
+
+    "Kharghar": [19.0473, 73.0699],
+
+    "Kamothe": [19.0167, 73.0800],
+
+    "New Panvel": [18.9880, 73.1100],
+
+    "Seawoods": [19.0178, 73.0169],
+
+    "Vashi": [19.0771, 72.9980],
+
+    "Belapur": [19.0178, 73.0418],
+
+    "Mumbai": [19.0760, 72.8777]
+
+};
+
+
+// =====================================================
+// CREATE MAP
+// =====================================================
+
+function initializeDisasterMap() {
+
+    const mapElement =
+        document.getElementById("map");
+
+
+    if (!mapElement) {
+        return;
+    }
+
+
+    // Prevent creating the map more than once
+    if (disasterMap) {
+        return;
+    }
+
+
+    // Default location: Kalamboli
+    disasterMap = L.map("map").setView(
+        locationCoordinates["Kalamboli"],
+        13
+    );
+
+
+    // OpenStreetMap tiles
+    L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+            maxZoom: 19,
+
+            attribution:
+                '&copy; OpenStreetMap contributors'
+        }
+    ).addTo(disasterMap);
+
+
+    // Default marker
+    disasterMarker =
+        L.marker(
+            locationCoordinates["Kalamboli"]
+        )
+        .addTo(disasterMap)
+        .bindPopup(
+            "📍 SafeGuard Disaster Location"
+        );
+
+
+    // Fix map size calculation
+    setTimeout(
+        function () {
+
+            disasterMap.invalidateSize();
+
+        },
+        300
+    );
+
+}
+
+
+// =====================================================
+// UPDATE MAP LOCATION
+// =====================================================
+
+function updateDisasterMap(activeAlerts) {
+
+    if (!disasterMap) {
+        return;
+    }
+
+
+    if (
+        !activeAlerts ||
+        activeAlerts.length === 0
+    ) {
+
+        // No active alert
+        disasterMap.setView(
+            locationCoordinates["Kalamboli"],
+            13
+        );
+
+
+        if (disasterMarker) {
+
+            disasterMarker.setLatLng(
+                locationCoordinates["Kalamboli"]
+            );
+
+            disasterMarker.setPopupContent(
+                "📍 No active disaster alert"
+            );
+
+        }
+
+        return;
+    }
+
+
+    // Use the newest active alert
+    const latestAlert =
+        activeAlerts[
+            activeAlerts.length - 1
+        ];
+
+
+    const location =
+        latestAlert.location
+            ? latestAlert.location.trim()
+            : "Kalamboli";
+
+
+    // Try to find exact known location
+    let coordinates =
+        locationCoordinates[location];
+
+
+    // Try case-insensitive matching
+    if (!coordinates) {
+
+        const matchingLocation =
+            Object.keys(
+                locationCoordinates
+            ).find(
+                function (name) {
+
+                    return name.toLowerCase() ===
+                        location.toLowerCase();
+
+                }
+            );
+
+
+        if (matchingLocation) {
+
+            coordinates =
+                locationCoordinates[
+                    matchingLocation
+                ];
+
+        }
+
+    }
+
+
+    // If location isn't in our list,
+    // use Kalamboli as safe fallback.
+    if (!coordinates) {
+
+        coordinates =
+            locationCoordinates["Kalamboli"];
+
+    }
+
+
+    // Move map
+    disasterMap.setView(
+        coordinates,
+        14,
+        {
+            animate: true
+        }
+    );
+
+
+    // Move marker
+    if (disasterMarker) {
+
+        disasterMarker.setLatLng(
+            coordinates
+        );
+
+
+        disasterMarker.setPopupContent(
+
+            "🚨 <strong>" +
+            latestAlert.disaster +
+            " Alert</strong><br>" +
+
+            "📍 " +
+            location +
+            "<br>" +
+
+            "⚠️ Severity: " +
+            latestAlert.severity
+
+        );
+
+    }
+
+}
+
+
+// =====================================================
+// START MAP
+// =====================================================
+
+initializeDisasterMap();
+
+
+// =====================================================
+// CONNECT MAP TO FIREBASE
+// =====================================================
+
+activeAlertsRef.on(
+    "value",
+    function (snapshot) {
+
+        const activeAlerts =
+            toArray(
+                snapshot.val()
+            );
+
+
+        updateDisasterMap(
+            activeAlerts
+        );
+
+    }
+);
