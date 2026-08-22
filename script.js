@@ -10,7 +10,7 @@ const alertForm = document.getElementById("alertForm");
 
 if (alertForm) {
 
-    alertForm.addEventListener("submit", function (event) {
+    alertForm.addEventListener("submit", async function(event) {
 
         event.preventDefault();
 
@@ -42,47 +42,54 @@ if (alertForm) {
         };
 
 
-        // Get existing active alerts
+        // Save alert to Firebase
+        const db = firebase.database();
 
-        let activeAlerts =
-            JSON.parse(
-                localStorage.getItem("activeDisasterAlerts")
-            ) || [];
+        // Get existing active alerts from Firebase
+        const activeAlertsSnapshot = await db
+            .ref("activeDisasterAlerts")
+            .once("value");
 
+        let activeAlerts = activeAlertsSnapshot.val() || [];
 
         // Give this alert a unique ID
-
-        alertData.id =
-            Date.now().toString();
-
+        alertData.id = Date.now().toString();
 
         // Add the new alert
-
         activeAlerts.push(alertData);
 
+        // Save active alerts to Firebase
+        await db
+            .ref("activeDisasterAlerts")
+            .set(activeAlerts);
 
-        // Save all active alerts
-
+        // Also save locally as backup
         localStorage.setItem(
             "activeDisasterAlerts",
             JSON.stringify(activeAlerts)
         );
 
-        // Save alert to history
 
-        let alertHistory =
-            JSON.parse(
-                localStorage.getItem("alertHistory")
-            ) || [];
+        // Get existing alert history from Firebase
+        const historySnapshot = await db
+            .ref("alertHistory")
+            .once("value");
 
+        let alertHistory = historySnapshot.val() || [];
+
+        // Add newest alert at the beginning
         alertHistory.unshift(alertData);
 
+        // Save history to Firebase
+        await db
+            .ref("alertHistory")
+            .set(alertHistory);
+
+        // Also save locally as backup
         localStorage.setItem(
             "alertHistory",
             JSON.stringify(alertHistory)
         );
-
-
         alert(
             "🚨 Disaster alert sent successfully!"
         );
@@ -110,12 +117,44 @@ const systemAlertStatus =
     document.getElementById("systemAlertStatus");
 
 
-// Get all active alerts
+// Get active alerts from localStorage first
 
-const activeAlerts =
+let activeAlerts =
     JSON.parse(
         localStorage.getItem("activeDisasterAlerts")
     ) || [];
+
+
+// Listen for Firebase changes
+
+const db = firebase.database();
+
+db.ref("activeDisasterAlerts").on("value", function(snapshot) {
+
+    const firebaseAlerts =
+        snapshot.val() || [];
+
+    const firebaseData =
+        JSON.stringify(firebaseAlerts);
+
+    const localData =
+        localStorage.getItem("activeDisasterAlerts") || "[]";
+
+
+    // Only reload when Firebase data is different
+
+    if (firebaseData !== localData) {
+
+        localStorage.setItem(
+            "activeDisasterAlerts",
+            firebaseData
+        );
+
+        location.reload();
+
+    }
+
+});
 
 
 // ------------------------------------------------
