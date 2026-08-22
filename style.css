@@ -1378,3 +1378,403 @@ footer p {
 .copy-button:hover {
     background: #e8edf2;
 }
+
+/* =========================================
+   MOBILE RESPONSIVE DESIGN
+   ========================================= */
+
+@media (max-width: 600px) {
+
+    /* Prevent horizontal overflow */
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Main page container */
+    .container {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 15px;
+        box-sizing: border-box;
+    }
+
+    /* Header */
+    header {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Hero section */
+    .hero {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 25px 20px;
+        margin-bottom: 30px;
+    }
+
+    .hero h1 {
+        font-size: 25px;
+        line-height: 1.15;
+    }
+
+    .hero p {
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+
+    /* =========================================
+       CURRENT ALERT SECTION
+       ========================================= */
+
+    #alertBox {
+        width: 100%;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-sizing: border-box;
+    }
+
+    /* Each disaster alert becomes a full card */
+    .multiple-alert {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+
+        display: flex;
+        align-items: flex-start;
+
+        padding: 16px;
+        margin: 0;
+
+        border-radius: 12px;
+    }
+
+    .multiple-alert-icon {
+        flex-shrink: 0;
+        font-size: 24px;
+        margin-right: 12px;
+    }
+
+    .multiple-alert-content {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .multiple-alert-content h3 {
+        font-size: 17px;
+        margin: 0 0 6px 0;
+    }
+
+    .multiple-alert-content p {
+        font-size: 14px;
+        line-height: 1.4;
+        margin: 0 0 10px 0;
+        word-break: break-word;
+    }
+
+    /* Location / severity / time */
+    .multiple-alert .alert-info {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+    }
+
+    .multiple-alert .alert-info span {
+        font-size: 12px;
+        white-space: normal;
+    }
+
+
+    /* =========================================
+       SAFETY INSTRUCTIONS
+       ========================================= */
+
+    #safetyInstructions {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        padding: 18px;
+        margin-top: 15px;
+    }
+
+    #safetyList {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    #safetyList h4 {
+        font-size: 15px;
+        margin-top: 18px;
+        margin-bottom: 8px;
+    }
+
+    #safetyList li {
+        font-size: 13px;
+        line-height: 1.5;
+        margin-bottom: 7px;
+    }
+
+
+    /* =========================================
+       AFFECTED AREA
+       ========================================= */
+
+    #affectedLocation {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        word-break: break-word;
+    }
+
+
+    /* =========================================
+       MAP
+       ========================================= */
+
+    #map {
+        width: 100%;
+        max-width: 100%;
+        height: 300px;
+        box-sizing: border-box;
+        border-radius: 12px;
+    }
+
+
+    /* =========================================
+       GENERAL CARDS
+       ========================================= */
+
+    .card,
+    section {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+
+    /* =========================================
+       HEADINGS
+       ========================================= */
+
+    h1 {
+        font-size: 25px;
+    }
+
+    h2 {
+        font-size: 21px;
+    }
+
+    h3 {
+        font-size: 17px;
+    }
+
+
+    /* =========================================
+       FOOTER
+       ========================================= */
+
+    footer {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 20px 15px;
+        text-align: center;
+    }
+
+}
+
+/* =========================================
+   FINAL MOBILE FIX
+   ========================================= */
+
+@media screen and (max-width: 600px) {
+
+    html,
+    body {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Main container */
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 15px !important;
+    }
+
+    /* Header */
+    .topbar {
+        width: 100% !important;
+        padding: 12px 15px !important;
+        box-sizing: border-box !important;
+    }
+
+    .brand {
+        gap: 8px !important;
+    }
+
+    .logo {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 18px !important;
+    }
+
+    .brand h1 {
+        font-size: 16px !important;
+    }
+
+    .brand p {
+        font-size: 9px !important;
+    }
+
+    /* Hero */
+    .hero {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        padding: 25px 20px !important;
+        margin-bottom: 30px !important;
+        box-sizing: border-box !important;
+    }
+
+    .hero h2 {
+        font-size: 28px !important;
+        line-height: 1.15 !important;
+    }
+
+    .hero p {
+        font-size: 12px !important;
+        max-width: 100% !important;
+    }
+
+    .hero-icon {
+        display: none !important;
+    }
+
+    /* Current Alerts */
+    #alertBox {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Individual alert */
+    .multiple-alert {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: flex-start !important;
+        box-sizing: border-box !important;
+        padding: 15px !important;
+        margin: 0 !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+    }
+
+    .multiple-alert-icon {
+        flex: 0 0 auto !important;
+        font-size: 24px !important;
+        margin-right: 10px !important;
+    }
+
+    .multiple-alert-content {
+        width: 100% !important;
+        min-width: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .multiple-alert-content h3 {
+        font-size: 16px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .multiple-alert-content p {
+        font-size: 13px !important;
+        line-height: 1.4 !important;
+        word-break: break-word !important;
+    }
+
+    .multiple-alert .alert-info {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 6px 10px !important;
+        width: 100% !important;
+    }
+
+    .multiple-alert .alert-info span {
+        font-size: 11px !important;
+        white-space: normal !important;
+    }
+
+    /* Safety instructions */
+    #safetyInstructions {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 18px !important;
+    }
+
+    #safetyList {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    #safetyList h4 {
+        font-size: 15px !important;
+    }
+
+    #safetyList li {
+        font-size: 12px !important;
+    }
+
+    /* Affected location */
+    #affectedLocation {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .location-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 18px !important;
+    }
+
+    .location-details h3 {
+        font-size: 17px !important;
+        word-break: break-word !important;
+    }
+
+    /* Map */
+    #map {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 280px !important;
+    }
+
+    /* Footer */
+    footer {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 20px 15px !important;
+        text-align: center !important;
+    }
+}
