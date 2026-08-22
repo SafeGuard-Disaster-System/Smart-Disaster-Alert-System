@@ -7,6 +7,12 @@
     <title>SafeGuard | Disaster Alert System</title>
 
     <link rel="stylesheet" href="style.css">
+
+    <!-- Leaflet Map -->
+        <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        />
 </head>
 
 <body>
@@ -115,6 +121,192 @@
 
         </section>
 
+        <!-- AFFECTED LOCATION -->
+
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">
+                        LOCATION AWARENESS
+                    </span>
+
+                    <h2>
+                        Affected Area
+                    </h2>
+                </div>
+
+            </div>
+
+            <div class="location-card">
+
+                <div class="location-icon">
+                    📍
+                </div>
+
+                <div class="location-details">
+
+                    <span>
+                        CURRENT ALERT LOCATION
+                    </span>
+
+                    <h3 id="affectedLocation">
+                        No affected location
+                    </h3>
+
+                    <p>
+                        The affected location will appear here
+                        when an active disaster alert is issued.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div class="map-card">
+
+                <div class="map-header">
+
+                    <div>
+                        <h3>🗺️ Disaster Location Map</h3>
+
+                        <p>
+                        Visual representation of the affected area
+                        </p>
+                    </div>
+
+                    <span class="map-status">
+                        LIVE VIEW
+                    </span>
+
+                </div>
+
+                <div id="map"></div>
+
+            </div>
+
+        </section>
+
+        <!-- HOW IT WORKS -->
+
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">
+                        SYSTEM PROCESS
+                    </span>
+
+                    <h2>
+                        How SafeGuard Works
+                    </h2>
+                </div>
+
+            </div>
+
+
+            <div class="process-flow">
+
+                <div class="process-step">
+
+                    <div class="process-number">
+                        01
+                    </div>
+
+                    <div class="process-icon">
+                        📡
+                    </div>
+
+                    <h3>Detect</h3>
+
+                    <p>
+                        Disaster information is received from
+                        authorised sources or monitoring systems.
+                    </p>
+
+                </div>
+
+
+                <div class="process-arrow">
+                    →
+                </div>
+
+
+                <div class="process-step">
+
+                    <div class="process-number">
+                        02
+                    </div>
+
+                    <div class="process-icon">
+                        🔍
+                    </div>
+
+                    <h3>Analyse</h3>
+
+                    <p>
+                        The system identifies the disaster,
+                        location and severity.
+                    </p>
+
+                </div>
+
+
+                <div class="process-arrow">
+                    →
+                </div>
+
+
+                <div class="process-step">
+
+                    <div class="process-number">
+                        03
+                    </div>
+
+                    <div class="process-icon">
+                        🚨
+                    </div>
+
+                    <h3>Alert</h3>
+
+                    <p>
+                        An emergency warning is displayed
+                        to the affected community.
+                    </p>
+
+                </div>
+
+
+                <div class="process-arrow">
+                    →
+                </div>
+
+
+                <div class="process-step">
+
+                    <div class="process-number">
+                        04
+                    </div>
+
+                    <div class="process-icon">
+                        🛡️
+                    </div>
+
+                    <h3>Respond</h3>
+
+                    <p>
+                        People follow safety instructions
+                        and take appropriate action.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
 
         <!-- Safety Information -->
         <section class="section">
@@ -176,58 +368,380 @@
 
         </section>
 
+        <!-- DISASTER INFORMATION -->
 
-        <!-- Emergency Contacts -->
+        <section class="section">
+
+            <div class="section-title">
+                <div>
+                    <span class="small-title">KNOW THE RISK</span>
+                    <h2>Disaster Information</h2>
+                </div>
+            </div>
+
+            <p class="disaster-intro">
+                Quick information about common disasters, their warning signs
+                and the immediate action you should take.
+            </p>
+
+            <div class="disaster-grid">
+
+                <!-- FLOOD -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>🌊</span>
+                        <h3>Flood</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Heavy rainfall and rising water levels.</p>
+                    <p><strong>Action:</strong> Move to higher ground and avoid floodwater.</p>
+                    <p><strong>IT Role:</strong> Water sensors, weather monitoring and mobile alerts.</p>
+                </div>
+
+
+                <!-- CYCLONE -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>🌪️</span>
+                        <h3>Cyclone</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Severe weather alerts, strong winds and heavy rain.</p>
+                    <p><strong>Action:</strong> Stay indoors and follow evacuation instructions.</p>
+                    <p><strong>IT Role:</strong> Satellites, weather forecasting and early warnings.</p>
+                </div>
+
+
+                <!-- EARTHQUAKE -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>🌍</span>
+                        <h3>Earthquake</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Earthquakes generally have little or no reliable advance warning.</p>
+                    <p><strong>Action:</strong> Drop, Cover and Hold On.</p>
+                    <p><strong>IT Role:</strong> Seismic sensors and emergency communication systems.</p>
+                </div>
+
+
+                <!-- FIRE -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>🔥</span>
+                        <h3>Fire</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Smoke, unusual heat, flames or fire alarms.</p>
+                    <p><strong>Action:</strong> Evacuate safely and contact emergency services.</p>
+                    <p><strong>IT Role:</strong> Smoke sensors, heat detectors and automatic alarms.</p>
+                </div>
+
+
+                <!-- LANDSLIDE -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>⛰️</span>
+                        <h3>Landslide</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Ground cracks, falling rocks or unusual slope movement.</p>
+                    <p><strong>Action:</strong> Move away from unstable slopes and affected areas.</p>
+                    <p><strong>IT Role:</strong> Rainfall monitoring, sensors and GIS risk mapping.</p>
+                </div>
+
+
+                <!-- TSUNAMI -->
+                <div class="disaster-card">
+                    <div class="disaster-title">
+                        <span>🌊</span>
+                        <h3>Tsunami</h3>
+                    </div>
+
+                    <p><strong>Warning:</strong> Strong coastal earthquake, unusual sea-level changes or official alerts.</p>
+                    <p><strong>Action:</strong> Move immediately to higher ground and away from the coast.</p>
+                    <p><strong>IT Role:</strong> Seismic monitoring, ocean sensors and coastal warning systems.</p>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- EMERGENCY & COMMUNITY SUPPORT -->
+
         <section class="section">
 
             <div class="section-title">
 
                 <div>
-                    <span class="small-title">NEED HELP?</span>
-                    <h2>Emergency Contacts</h2>
+                    <span class="small-title">
+                        HELP & SUPPORT
+                    </span>
+
+                    <h2>
+                        Emergency & Community Support
+                    </h2>
                 </div>
 
             </div>
 
 
-            <div class="contacts">
+            <!-- OFFICIAL EMERGENCY CONTACTS -->
 
-                <div class="contact">
-                    <span>🚔</span>
+            <div class="support-group">
+
+                <div class="support-heading">
+                    <span>🚨</span>
 
                     <div>
-                        <h3>Police</h3>
-                        <p>Emergency assistance</p>
-                    </div>
+                        <h3>Official Emergency Contacts</h3>
 
-                    <strong>112</strong>
+                        <p>
+                            Use these services during an emergency.
+                        </p>
+                    </div>
                 </div>
 
 
-                <div class="contact">
-                    <span>🚑</span>
+                <div class="contact-card">
 
-                    <div>
-                        <h3>Ambulance</h3>
-                        <p>Medical emergency</p>
+                    <span class="contact-icon">
+                        🚨
+                    </span>
+
+                    <div class="contact-info">
+
+                        <h4>112</h4>
+
+                        <p>
+                            Integrated Emergency Number
+                        </p>
+
+                        <div class="contact-actions">
+
+                            <a
+                                href="tel:112"
+                                class="call-button"
+                            >
+                                📞 Call
+                            </a>
+
+                            <button
+                                type="button"
+                                class="copy-button"
+                                onclick="copyEmergencyNumber('112')"
+                            >
+                                📋 Copy
+                            </button>
+
+                        </div>
+
                     </div>
 
-                    <strong>108</strong>
                 </div>
 
 
-                <div class="contact">
-                    <span>🔥</span>
+                <div class="contact-card">
 
-                    <div>
-                        <h3>Fire & Rescue</h3>
-                        <p>Fire emergency</p>
+                    <span class="contact-icon">
+                        🚑
+                    </span>
+
+                    <div class="contact-info">
+
+                        <h4>108</h4>
+
+                        <p>
+                            Emergency Ambulance
+                        </p>
+
+                        <div class="contact-actions">
+
+                            <a
+                                href="tel:108"
+                                class="call-button"
+                            >
+                                📞 Call
+                            </a>
+
+                            <button
+                                type="button"
+                                class="copy-button"
+                                onclick="copyEmergencyNumber('108')"
+                            >
+                                📋 Copy
+                            </button>
+
+                        </div>
+
                     </div>
 
-                    <strong>101</strong>
+                </div>
+
+
+                <div class="contact-card">
+
+                    <span class="contact-icon">
+                        🏛️
+                    </span>
+
+                    <div class="contact-info">
+
+                        <h4>1070</h4>
+
+                        <p>
+                            Maharashtra Disaster Response
+                        </p>
+
+                        <div class="contact-actions">
+
+                            <a
+                                href="tel:1070"
+                                class="call-button"
+                            >
+                                📞 Call
+                            </a>
+
+                            <button
+                                type="button"
+                                class="copy-button"
+                                onclick="copyEmergencyNumber('1070')"
+                            >
+                                📋 Copy
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="contact-card">
+
+                    <span class="contact-icon">
+                        📡
+                    </span>
+
+                    <div class="contact-info">
+
+                        <h4>+91 9321587143</h4>
+
+                        <p>
+                            Maharashtra State Emergency Operations Centre
+                        </p>
+
+                        <div class="contact-actions">
+
+                            <a
+                                href="tel:+919321587143"
+                                class="call-button"
+                            >
+                                📞 Call
+                            </a>
+
+                            <button
+                                type="button"
+                                class="copy-button"
+                                onclick="copyEmergencyNumber('+91 9321587143')"
+                            >
+                                📋 Copy
+                            </button>
+
+                        </div>
+
+                    </div>
+
                 </div>
 
             </div>
+
+
+            <!-- COMMUNITY ORGANIZATION -->
+
+            <div class="support-group ngo-support">
+
+                <div class="support-heading">
+
+                    <span>🤝</span>
+
+                    <div>
+
+                        <h3>
+                            Community Disaster Support
+                        </h3>
+
+                        <p>
+                            Local organization working in disaster
+                            preparedness and community resilience.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="ngo-card">
+
+                    <div>
+
+                        <span class="ngo-label">
+                            LOCAL ORGANIZATION
+                        </span>
+
+                        <h3>
+                            Emergency Response & Awareness
+                            Foundation (ERAF)
+                        </h3>
+
+                        <p>
+                            A Navi Mumbai-based organization involved
+                            in disaster management, preparedness,
+                            awareness and community resilience.
+                        </p>
+
+                        <div class="ngo-contact">
+
+                            <span>
+                                📍 Seawoods, Navi Mumbai
+                            </span>
+
+                            <span>
+                                📞 +91 9326404800
+                            </span>
+
+                            <span>
+                                📧 erafindia@gmail.com
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <a
+                        href="https://eraf.in/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="ngo-button"
+                    >
+                        🌐 Visit Website
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            <p class="support-note">
+
+                <strong>Note:</strong>
+                Emergency contact information is provided for
+                awareness and should be verified with official
+                authorities when necessary.
+
+            </p>
 
         </section>
 
@@ -248,6 +762,9 @@
 
     </footer>
 
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    </script>
 
     <script src="script.js"></script>
 

@@ -85,12 +85,20 @@
                                 🌪️ Cyclone
                             </option>
 
+                            <option value="Earthquake">
+                                🌍 Earthquake
+                            </option>
+
                             <option value="Fire">
                                 🔥 Fire
                             </option>
 
-                            <option value="Earthquake">
-                                🌍 Earthquake
+                            <option value="Landslide">
+                                ⛰️ Landslide
+                            </option>
+
+                            <option value="Tsunami">
+                                🌊 Tsunami
                             </option>
 
                         </select>
@@ -225,6 +233,77 @@
                 </div>
 
             </div>
+
+        </section>
+
+        <!-- ACTIVE ALERTS -->
+
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">
+                        LIVE CONTROL
+                    </span>
+
+                    <h2>
+                        Active Alerts
+                    </h2>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="adminActiveAlerts"
+                class="admin-active-alerts"
+            >
+
+                <p class="empty-history">
+                    No active alerts.
+                </p>
+
+            </div>
+
+        </section>
+
+        <section class="section">
+
+            <div class="section-title">
+
+                <div>
+                    <span class="small-title">
+                        RECORDS
+                    </span>
+
+                    <h2>
+                        Alert History
+                    </h2>
+                </div>
+
+            </div>
+
+        <div class="history-header">
+
+            <div id="alertHistory" class="history-list">
+
+                <p class="empty-history">
+                    No previous alerts.
+                </p>
+
+            </div>
+
+            <button
+                type="button"
+                class="clear-history-button"
+                id="clearHistory"
+            >
+                🗑️ Clear History
+            </button>
+
+        </div>
 
         </section>
 
