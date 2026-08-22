@@ -1,6 +1,6 @@
 // =====================================================
 // SAFEGUARD DISASTER ALERT SYSTEM
-// Firebase Realtime Database Version
+// FINAL SCRIPT.JS
 // =====================================================
 
 
@@ -10,16 +10,28 @@
 
 const db = firebase.database();
 
-const activeAlertsRef = db.ref("activeDisasterAlerts");
-const historyRef = db.ref("alertHistory");
+const activeAlertsRef =
+    db.ref("activeDisasterAlerts");
+
+const historyRef =
+    db.ref("alertHistory");
 
 
 // =====================================================
-// HELPER FUNCTIONS
+// GLOBAL VARIABLES
 // =====================================================
 
-// Firebase may return an array OR an object.
-// This converts either format into a clean array.
+let disasterMap = null;
+
+let disasterMarkers = [];
+
+let mapUpdateVersion = 0;
+
+
+// =====================================================
+// HELPERS
+// =====================================================
+
 function toArray(data) {
 
     if (!data) {
@@ -34,38 +46,98 @@ function toArray(data) {
 }
 
 
-// Get disaster icon
+function escapeHTML(value) {
+
+    const div =
+        document.createElement("div");
+
+    div.textContent =
+        value == null ? "" : String(value);
+
+    return div.innerHTML;
+}
+
+
 function getDisasterIcon(disaster) {
 
-    switch (disaster) {
+    const icons = {
 
-        case "Flood":
-            return "🌊";
+        Flood: "🌊",
+        Cyclone: "🌪️",
+        Earthquake: "🌍",
+        Fire: "🔥",
+        Landslide: "⛰️",
+        Tsunami: "🌊"
 
-        case "Cyclone":
-            return "🌪️";
+    };
 
-        case "Earthquake":
-            return "🌍";
-
-        case "Fire":
-            return "🔥";
-
-        case "Landslide":
-            return "⛰️";
-
-        case "Tsunami":
-            return "🌊";
-
-        default:
-            return "⚠️";
-    }
+    return icons[disaster] || "⚠️";
 }
 
 
 // =====================================================
-// ADMIN PANEL
-// SEND ALERT
+// SAFETY INSTRUCTIONS
+// =====================================================
+
+function getSafetyInstructions(disaster) {
+
+    const instructions = {
+
+        Flood: [
+            "Move to higher ground immediately.",
+            "Avoid flooded roads and bridges.",
+            "Never walk or drive through moving water.",
+            "Keep your phone charged and follow official updates."
+        ],
+
+        Cyclone: [
+            "Stay indoors and away from windows.",
+            "Secure loose objects around your home.",
+            "Follow official evacuation instructions.",
+            "Keep emergency supplies and drinking water ready."
+        ],
+
+        Earthquake: [
+            "Drop, Cover and Hold On.",
+            "Stay away from windows and falling objects.",
+            "Do not use elevators during an earthquake.",
+            "After shaking stops, follow official instructions."
+        ],
+
+        Fire: [
+            "Move away from the affected area.",
+            "Stay low if there is smoke.",
+            "Do not use elevators during a fire.",
+            "Call emergency services and follow evacuation instructions."
+        ],
+
+        Landslide: [
+            "Move away from steep slopes and unstable areas.",
+            "Avoid roads or paths affected by falling rocks.",
+            "Move to a safe area if you notice cracks or unusual ground movement.",
+            "Follow official evacuation instructions."
+        ],
+
+        Tsunami: [
+            "Move quickly to higher ground and away from the coast.",
+            "Do not go to the shore to watch the waves.",
+            "Follow official tsunami warnings and evacuation orders.",
+            "Stay away from coastal areas until authorities give an all-clear."
+        ]
+
+    };
+
+    return instructions[disaster] || [
+        "Move to a safe location.",
+        "Follow official emergency instructions.",
+        "Keep your phone charged.",
+        "Avoid dangerous areas."
+    ];
+}
+
+
+// =====================================================
+// ADMIN - SEND ALERT
 // =====================================================
 
 const alertForm =
@@ -82,19 +154,33 @@ if (alertForm) {
 
 
             const disaster =
-                document.getElementById("disaster").value;
+                document
+                    .getElementById("disaster")
+                    .value
+                    .trim();
+
 
             const location =
-                document.getElementById("location").value.trim();
+                document
+                    .getElementById("location")
+                    .value
+                    .trim();
+
 
             const severity =
-                document.getElementById("severity").value;
+                document
+                    .getElementById("severity")
+                    .value
+                    .trim();
+
 
             const message =
-                document.getElementById("message").value.trim();
+                document
+                    .getElementById("message")
+                    .value
+                    .trim();
 
 
-            // Check fields
             if (
                 !disaster ||
                 !location ||
@@ -103,110 +189,112 @@ if (alertForm) {
             ) {
 
                 alert(
-                    "Please fill all fields before sending the alert."
+                    "Please fill in all fields."
                 );
 
                 return;
             }
 
 
-            // Create alert
-            const now = new Date();
+            const now =
+                new Date();
+
 
             const alertData = {
 
-                id: Date.now().toString(),
+                id:
+                    Date.now().toString(),
 
-                disaster: disaster,
+                disaster:
+                    disaster,
 
-                location: location,
+                location:
+                    location,
 
-                severity: severity,
+                severity:
+                    severity,
 
-                message: message,
+                message:
+                    message,
 
-                time: now.toLocaleTimeString(),
+                time:
+                    now.toLocaleTimeString(),
 
-                date: now.toLocaleDateString(),
+                date:
+                    now.toLocaleDateString(),
 
-                status: "Active"
+                status:
+                    "Active"
 
             };
 
 
             try {
 
-                // -----------------------------------------
-                // GET CURRENT ALERTS FROM FIREBASE
-                // -----------------------------------------
-
-                const snapshot =
-                    await activeAlertsRef.once("value");
+                const activeSnapshot =
+                    await activeAlertsRef.once(
+                        "value"
+                    );
 
 
-                let activeAlerts =
-                    toArray(snapshot.val());
+                const activeAlerts =
+                    toArray(
+                        activeSnapshot.val()
+                    );
 
 
-                // -----------------------------------------
-                // ADD NEW ALERT
-                // -----------------------------------------
+                activeAlerts.push(
+                    alertData
+                );
 
-                activeAlerts.push(alertData);
-
-
-                // -----------------------------------------
-                // SAVE DIRECTLY TO FIREBASE
-                // -----------------------------------------
 
                 await activeAlertsRef.set(
                     activeAlerts
                 );
 
 
-                // -----------------------------------------
-                // SAVE TO HISTORY
-                // -----------------------------------------
-
                 const historySnapshot =
-                    await historyRef.once("value");
+                    await historyRef.once(
+                        "value"
+                    );
 
 
-                let alertHistory =
-                    toArray(historySnapshot.val());
+                const history =
+                    toArray(
+                        historySnapshot.val()
+                    );
 
 
-                alertHistory.unshift(alertData);
-
-
-                await historyRef.set(
-                    alertHistory
+                history.unshift(
+                    alertData
                 );
 
 
-                // -----------------------------------------
-                // SUCCESS
-                // -----------------------------------------
-
-                alert(
-                    "🚨 Disaster alert sent successfully!"
+                await historyRef.set(
+                    history
                 );
 
 
                 alertForm.reset();
 
 
+                alert(
+                    "🚨 Disaster alert sent successfully!"
+                );
+
+
             } catch (error) {
 
                 console.error(
-                    "Error sending alert:",
+                    "Send alert error:",
                     error
                 );
 
 
                 alert(
-                    "❌ Failed to send alert.\n\nPlease check your Firebase connection."
+                    "❌ Could not send the alert."
                 );
+
             }
 
         }
@@ -216,8 +304,7 @@ if (alertForm) {
 
 
 // =====================================================
-// ADMIN PANEL
-// DISPLAY ACTIVE ALERTS
+// ADMIN - ACTIVE ALERTS
 // =====================================================
 
 const adminActiveAlerts =
@@ -227,7 +314,7 @@ const adminActiveAlerts =
 
 
 function displayAdminActiveAlerts(
-    activeAlerts
+    alerts
 ) {
 
     if (!adminActiveAlerts) {
@@ -235,14 +322,12 @@ function displayAdminActiveAlerts(
     }
 
 
-    if (activeAlerts.length === 0) {
+    if (alerts.length === 0) {
 
         adminActiveAlerts.innerHTML = `
-
             <p class="empty-history">
                 No active alerts.
             </p>
-
         `;
 
         return;
@@ -252,18 +337,20 @@ function displayAdminActiveAlerts(
     adminActiveAlerts.innerHTML = "";
 
 
-    activeAlerts.forEach(
+    alerts.forEach(
         function (alertData) {
 
-            const alertItem =
-                document.createElement("div");
+            const item =
+                document.createElement(
+                    "div"
+                );
 
 
-            alertItem.className =
+            item.className =
                 "admin-alert-item";
 
 
-            alertItem.innerHTML = `
+            item.innerHTML = `
 
                 <div class="admin-alert-icon">
 
@@ -277,35 +364,49 @@ function displayAdminActiveAlerts(
                 <div class="admin-alert-details">
 
                     <h3>
-                        ${alertData.disaster} Alert
+                        ${escapeHTML(
+                            alertData.disaster
+                        )}
+                        Alert
                     </h3>
 
 
                     <p>
 
-                        📍 ${alertData.location}
+                        📍
+                        ${escapeHTML(
+                            alertData.location
+                        )}
 
                         &nbsp; • &nbsp;
 
-                        ⚠️ ${alertData.severity}
+                        ⚠️
+                        ${escapeHTML(
+                            alertData.severity
+                        )}
 
                         &nbsp; • &nbsp;
 
-                        🕐 ${alertData.time}
+                        🕐
+                        ${escapeHTML(
+                            alertData.time
+                        )}
 
                     </p>
 
 
                     <p>
-                        ${alertData.message}
+                        ${escapeHTML(
+                            alertData.message
+                        )}
                     </p>
 
                 </div>
 
 
                 <button
+                    type="button"
                     class="admin-resolve-button"
-                    data-alert-id="${alertData.id}"
                 >
                     ✅ Resolve
                 </button>
@@ -313,207 +414,26 @@ function displayAdminActiveAlerts(
             `;
 
 
-            adminActiveAlerts.appendChild(
-                alertItem
-            );
-
-
-            // -----------------------------------------
-            // RESOLVE BUTTON
-            // -----------------------------------------
-
-            const resolveButton =
-                alertItem.querySelector(
+            const button =
+                item.querySelector(
                     ".admin-resolve-button"
                 );
 
 
-            resolveButton.addEventListener(
+            button.addEventListener(
                 "click",
-                async function () {
+                function () {
 
-                    const alertId =
-                        this.getAttribute(
-                            "data-alert-id"
-                        );
-
-
-                    const confirmResolve =
-                        confirm(
-                            "Resolve this disaster alert?"
-                        );
-
-
-                    if (!confirmResolve) {
-                        return;
-                    }
-
-
-                    try {
-
-                        // ---------------------------------
-                        // GET LATEST DATA FROM FIREBASE
-                        // ---------------------------------
-
-                        const snapshot =
-                            await activeAlertsRef.once(
-                                "value"
-                            );
-
-
-                        let currentAlerts =
-                            toArray(
-                                snapshot.val()
-                            );
-
-
-                        // ---------------------------------
-                        // FIND ALERT
-                        // ---------------------------------
-
-                        const resolvedAlert =
-                            currentAlerts.find(
-                                function (item) {
-
-                                    return String(
-                                        item.id
-                                    ) === String(
-                                        alertId
-                                    );
-
-                                }
-                            );
-
-
-                        if (!resolvedAlert) {
-
-                            alert(
-                                "⚠️ This alert is no longer active."
-                            );
-
-                            return;
-                        }
-
-
-                        // ---------------------------------
-                        // REMOVE ALERT FROM ACTIVE ALERTS
-                        // ---------------------------------
-
-                        const updatedAlerts =
-                            currentAlerts.filter(
-                                function (item) {
-
-                                    return String(
-                                        item.id
-                                    ) !== String(
-                                        alertId
-                                    );
-
-                                }
-                            );
-
-
-                        // ---------------------------------
-                        // IMPORTANT:
-                        // SAVE THE REMOVAL TO FIREBASE
-                        // ---------------------------------
-
-                        await activeAlertsRef.set(
-                            updatedAlerts
-                        );
-
-
-                        // ---------------------------------
-                        // GET HISTORY
-                        // ---------------------------------
-
-                        const historySnapshot =
-                            await historyRef.once(
-                                "value"
-                            );
-
-
-                        let alertHistory =
-                            toArray(
-                                historySnapshot.val()
-                            );
-
-
-                        // ---------------------------------
-                        // MARK ALERT AS RESOLVED
-                        // ---------------------------------
-
-                        alertHistory =
-                            alertHistory.map(
-                                function (item) {
-
-                                    if (
-                                        String(item.id) ===
-                                        String(resolvedAlert.id)
-                                    ) {
-
-                                        return {
-
-                                            ...item,
-
-                                            status:
-                                                "Resolved"
-
-                                        };
-
-                                    }
-
-
-                                    return item;
-
-                                }
-                            );
-
-
-                        // ---------------------------------
-                        // SAVE HISTORY TO FIREBASE
-                        // ---------------------------------
-
-                        await historyRef.set(
-                            alertHistory
-                        );
-
-
-                        // ---------------------------------
-                        // SUCCESS
-                        // ---------------------------------
-
-                        alert(
-                            "✅ Alert resolved successfully."
-                        );
-
-
-                        // Refresh admin display
-                        displayAdminActiveAlerts(
-                            updatedAlerts
-                        );
-
-
-                        displayAlertHistory(
-                            alertHistory
-                        );
-
-
-                    } catch (error) {
-
-                        console.error(
-                            "Resolve error:",
-                            error
-                        );
-
-
-                        alert(
-                            "❌ Could not resolve the alert.\n\nPlease try again."
-                        );
-
-                    }
+                    resolveAlert(
+                        alertData.id
+                    );
 
                 }
+            );
+
+
+            adminActiveAlerts.appendChild(
+                item
             );
 
         }
@@ -523,36 +443,305 @@ function displayAdminActiveAlerts(
 
 
 // =====================================================
-// ADMIN PANEL
-// REAL-TIME ACTIVE ALERT LISTENER
+// ADMIN - RESOLVE ALERT
 // =====================================================
 
-activeAlertsRef.on(
-    "value",
-    function (snapshot) {
+async function resolveAlert(
+    alertId
+) {
 
-        const activeAlerts =
+    const confirmed =
+        confirm(
+            "Are you sure you want to resolve this alert?"
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    try {
+
+        const snapshot =
+            await activeAlertsRef.once(
+                "value"
+            );
+
+
+        const alerts =
             toArray(
                 snapshot.val()
             );
 
 
-        displayAdminActiveAlerts(
-            activeAlerts
+        const remaining =
+            alerts.filter(
+                function (item) {
+
+                    return String(item.id) !==
+                        String(alertId);
+
+                }
+            );
+
+
+        await activeAlertsRef.set(
+            remaining
         );
 
 
-        displayUserActiveAlerts(
-            activeAlerts
+        const historySnapshot =
+            await historyRef.once(
+                "value"
+            );
+
+
+        const history =
+            toArray(
+                historySnapshot.val()
+            );
+
+
+        const updatedHistory =
+            history.map(
+                function (item) {
+
+                    if (
+                        String(item.id) ===
+                        String(alertId)
+                    ) {
+
+                        return {
+                            ...item,
+                            status: "Resolved"
+                        };
+
+                    }
+
+                    return item;
+
+                }
+            );
+
+
+        await historyRef.set(
+            updatedHistory
+        );
+
+
+        alert(
+            "✅ Alert resolved successfully."
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Resolve error:",
+            error
+        );
+
+
+        alert(
+            "❌ Could not resolve the alert."
         );
 
     }
-);
+
+}
 
 
 // =====================================================
-// USER DASHBOARD
-// ELEMENTS
+// ADMIN - HISTORY
+// =====================================================
+
+const alertHistoryElement =
+    document.getElementById(
+        "alertHistory"
+    );
+
+
+function displayAlertHistory(
+    history
+) {
+
+    if (!alertHistoryElement) {
+        return;
+    }
+
+
+    if (history.length === 0) {
+
+        alertHistoryElement.innerHTML = `
+            <p class="empty-history">
+                No previous alerts.
+            </p>
+        `;
+
+        return;
+    }
+
+
+    alertHistoryElement.innerHTML = "";
+
+
+    history.forEach(
+        function (alertData) {
+
+            const item =
+                document.createElement(
+                    "div"
+                );
+
+
+            item.className =
+                "history-item";
+
+
+            item.innerHTML = `
+
+                <div>
+
+                    <strong>
+
+                        ${getDisasterIcon(
+                            alertData.disaster
+                        )}
+
+                        ${escapeHTML(
+                            alertData.disaster
+                        )}
+
+                        Alert
+
+                    </strong>
+
+
+                    <p>
+
+                        📍
+                        ${escapeHTML(
+                            alertData.location
+                        )}
+
+                        &nbsp; • &nbsp;
+
+                        ⚠️
+                        ${escapeHTML(
+                            alertData.severity
+                        )}
+
+                    </p>
+
+
+                    <p>
+
+                        ${escapeHTML(
+                            alertData.message
+                        )}
+
+                    </p>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        ${escapeHTML(
+                            alertData.status
+                        )}
+                    </span>
+
+
+                    <p>
+
+                        ${escapeHTML(
+                            alertData.date
+                        )}
+
+                        &nbsp;
+
+                        ${escapeHTML(
+                            alertData.time
+                        )}
+
+                    </p>
+
+                </div>
+
+            `;
+
+
+            alertHistoryElement.appendChild(
+                item
+            );
+
+        }
+    );
+
+}
+
+
+// =====================================================
+// ADMIN - CLEAR HISTORY
+// =====================================================
+
+const clearHistoryButton =
+    document.getElementById(
+        "clearHistory"
+    );
+
+
+if (clearHistoryButton) {
+
+    clearHistoryButton.addEventListener(
+        "click",
+        async function () {
+
+            if (
+                !confirm(
+                    "Are you sure you want to clear all alert history?"
+                )
+            ) {
+                return;
+            }
+
+
+            try {
+
+                await historyRef.set(
+                    []
+                );
+
+
+                alert(
+                    "🗑️ Alert history cleared."
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    error
+                );
+
+
+                alert(
+                    "❌ Could not clear history."
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// =====================================================
+// USER DASHBOARD ELEMENTS
 // =====================================================
 
 const alertBox =
@@ -567,13 +756,30 @@ const systemAlertStatus =
     );
 
 
+const affectedLocation =
+    document.getElementById(
+        "affectedLocation"
+    );
+
+
+const safetyInstructions =
+    document.getElementById(
+        "safetyInstructions"
+    );
+
+
+const safetyList =
+    document.getElementById(
+        "safetyList"
+    );
+
+
 // =====================================================
-// USER DASHBOARD
-// DISPLAY ACTIVE ALERTS
+// USER - DISPLAY ALERTS
 // =====================================================
 
 function displayUserActiveAlerts(
-    activeAlerts
+    alerts
 ) {
 
     if (!alertBox) {
@@ -581,11 +787,11 @@ function displayUserActiveAlerts(
     }
 
 
-    // -----------------------------------------
+    // =================================================
     // NO ACTIVE ALERTS
-    // -----------------------------------------
+    // =================================================
 
-    if (activeAlerts.length === 0) {
+    if (alerts.length === 0) {
 
         alertBox.innerHTML = `
 
@@ -593,16 +799,20 @@ function displayUserActiveAlerts(
                 ✓
             </div>
 
+
             <div class="alert-content">
 
                 <h3>
                     No Active Emergency
                 </h3>
 
+
                 <p>
                     There are currently no active
-                    disaster warnings.
+                    disaster warnings reported
+                    in your area.
                 </p>
+
 
                 <div class="alert-info">
 
@@ -626,53 +836,68 @@ function displayUserActiveAlerts(
             systemAlertStatus.textContent =
                 "● No Active Emergency";
 
-            systemAlertStatus.style.color =
-                "#2e9b59";
         }
+
+
+        // FIX LOCATION CARD
+        setAffectedLocation(
+            "No affected location"
+        );
+
+
+        if (safetyInstructions) {
+
+            safetyInstructions.style.display =
+                "none";
+
+        }
+
+
+        updateDisasterMap(
+            []
+        );
 
 
         return;
     }
 
 
-    // -----------------------------------------
-    // ACTIVE ALERTS EXIST
-    // -----------------------------------------
+    // =================================================
+    // ACTIVE ALERT
+    // =================================================
 
     if (systemAlertStatus) {
 
         systemAlertStatus.textContent =
             "🔴 " +
-            activeAlerts.length +
-            " Active Emergency" +
+            alerts.length +
+            " Active Alert" +
             (
-                activeAlerts.length === 1
+                alerts.length === 1
                     ? ""
-                    : "ies"
+                    : "s"
             );
 
-        systemAlertStatus.style.color =
-            "#d9363e";
     }
 
 
     alertBox.innerHTML = "";
 
 
-    activeAlerts.forEach(
+    alerts.forEach(
         function (alertData) {
 
-            const alertItem =
+            const item =
                 document.createElement(
                     "div"
                 );
 
 
-            alertItem.className =
+            item.className =
                 "multiple-alert";
 
 
-            alertItem.innerHTML = `
+            item.innerHTML = `
 
                 <div class="alert-icon">
 
@@ -687,7 +912,9 @@ function displayUserActiveAlerts(
 
                     <h3>
 
-                        ${alertData.disaster}
+                        ${escapeHTML(
+                            alertData.disaster
+                        )}
                         Alert
 
                     </h3>
@@ -695,7 +922,9 @@ function displayUserActiveAlerts(
 
                     <p>
 
-                        ${alertData.message}
+                        ${escapeHTML(
+                            alertData.message
+                        )}
 
                     </p>
 
@@ -703,17 +932,32 @@ function displayUserActiveAlerts(
                     <div class="alert-info">
 
                         <span>
-                            📍 ${alertData.location}
+
+                            📍
+                            ${escapeHTML(
+                                alertData.location
+                            )}
+
                         </span>
 
 
                         <span>
-                            ⚠️ ${alertData.severity}
+
+                            ⚠️
+                            ${escapeHTML(
+                                alertData.severity
+                            )}
+
                         </span>
 
 
                         <span>
-                            🕐 ${alertData.time}
+
+                            🕐
+                            ${escapeHTML(
+                                alertData.time
+                            )}
+
                         </span>
 
                     </div>
@@ -724,145 +968,255 @@ function displayUserActiveAlerts(
 
 
             alertBox.appendChild(
-                alertItem
+                item
             );
 
         }
     );
 
-}
+
+    // =================================================
+    // FIX LOCATION CARD
+    // =================================================
+
+    const locationText =
+        alerts
+            .map(
+                function (item) {
+
+                    return (
+                        item.location || ""
+                    ).trim();
+
+                }
+            )
+            .filter(
+                function (location) {
+
+                    return location !== "";
+
+                }
+            )
+            .join(" • ");
 
 
-// =====================================================
-// ALERT HISTORY
-// =====================================================
-
-const alertHistoryElement =
-    document.getElementById(
-        "alertHistory"
+    setAffectedLocation(
+        locationText ||
+        "No affected location"
     );
 
 
-function displayAlertHistory(
-    alertHistory
-) {
+    // =================================================
+    // SAFETY INSTRUCTIONS
+    // =================================================
 
-    if (!alertHistoryElement) {
-        return;
-    }
+    if (
+        safetyInstructions &&
+        safetyList
+    ) {
 
-
-    if (alertHistory.length === 0) {
-
-        alertHistoryElement.innerHTML = `
-
-            <p class="empty-history">
-                No previous alerts.
-            </p>
-
-        `;
-
-        return;
-    }
+        safetyList.innerHTML = "";
 
 
-    alertHistoryElement.innerHTML = "";
+        const used =
+            new Set();
 
 
-    alertHistory.forEach(
-        function (alertData) {
+        alerts.forEach(
+            function (alertData) {
 
-            const historyItem =
-                document.createElement(
-                    "div"
+                if (
+                    used.has(
+                        alertData.disaster
+                    )
+                ) {
+                    return;
+                }
+
+
+                used.add(
+                    alertData.disaster
                 );
 
 
-            historyItem.className =
-                "history-item";
+                const heading =
+                    document.createElement(
+                        "li"
+                    );
 
 
-            historyItem.innerHTML = `
-
-                <div>
-
-                    <strong>
-
-                        ${getDisasterIcon(
-                            alertData.disaster
-                        )}
-
-                        ${alertData.disaster}
-                        Alert
-
-                    </strong>
+                heading.innerHTML =
+                    `<strong>${escapeHTML(
+                        alertData.disaster
+                    )}</strong>`;
 
 
-                    <p>
-
-                        📍 ${alertData.location}
-
-                        &nbsp; • &nbsp;
-
-                        ⚠️ ${alertData.severity}
-
-                    </p>
+                safetyList.appendChild(
+                    heading
+                );
 
 
-                    <p>
-                        ${alertData.message}
-                    </p>
+                getSafetyInstructions(
+                    alertData.disaster
+                ).forEach(
+                    function (instruction) {
 
-                </div>
-
-
-                <div>
-
-                    <span>
-
-                        ${alertData.status}
-
-                    </span>
-
-                    <p>
-
-                        ${alertData.date}
-                        &nbsp;
-                        ${alertData.time}
-
-                    </p>
-
-                </div>
-
-            `;
+                        const li =
+                            document.createElement(
+                                "li"
+                            );
 
 
-            alertHistoryElement.appendChild(
-                historyItem
-            );
+                        li.textContent =
+                            instruction;
 
-        }
+
+                        safetyList.appendChild(
+                            li
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+
+        safetyInstructions.style.display =
+            "block";
+
+    }
+
+
+    // =================================================
+    // MAP
+    // =================================================
+
+    updateDisasterMap(
+        alerts
     );
 
 }
 
 
 // =====================================================
-// HISTORY REAL-TIME LISTENER
+// LOCATION CARD - ROBUST UPDATE
+// =====================================================
+
+function setAffectedLocation(
+    location
+) {
+
+    // Try the expected ID
+    const element =
+        document.getElementById(
+            "affectedLocation"
+        );
+
+
+    if (element) {
+
+        element.textContent =
+            location;
+
+        return;
+
+    }
+
+
+    // Compatibility with alternate IDs
+    const alternatives = [
+        "currentLocation",
+        "currentAlertLocation",
+        "affectedArea",
+        "locationText"
+    ];
+
+
+    for (
+        const id of alternatives
+    ) {
+
+        const alternate =
+            document.getElementById(id);
+
+
+        if (alternate) {
+
+            alternate.textContent =
+                location;
+
+            return;
+
+        }
+
+    }
+
+
+    console.warn(
+        "Affected location element was not found."
+    );
+
+}
+
+
+// =====================================================
+// FIREBASE ACTIVE ALERT LISTENER
+// =====================================================
+
+activeAlertsRef.on(
+    "value",
+    function (snapshot) {
+
+        const alerts =
+            toArray(
+                snapshot.val()
+            );
+
+
+        console.log(
+            "Firebase active alerts:",
+            alerts
+        );
+
+
+        displayAdminActiveAlerts(
+            alerts
+        );
+
+
+        displayUserActiveAlerts(
+            alerts
+        );
+
+    },
+    function (error) {
+
+        console.error(
+            "Firebase active alerts error:",
+            error
+        );
+
+    }
+);
+
+
+// =====================================================
+// FIREBASE HISTORY LISTENER
 // =====================================================
 
 historyRef.on(
     "value",
     function (snapshot) {
 
-        const alertHistory =
+        const history =
             toArray(
                 snapshot.val()
             );
 
 
         displayAlertHistory(
-            alertHistory
+            history
         );
 
     }
@@ -870,160 +1224,15 @@ historyRef.on(
 
 
 // =====================================================
-// CLEAR HISTORY
-// =====================================================
-
-const clearHistoryButton =
-    document.getElementById(
-        "clearHistory"
-    );
-
-
-if (clearHistoryButton) {
-
-    clearHistoryButton.addEventListener(
-        "click",
-        async function () {
-
-            const confirmClear =
-                confirm(
-                    "Are you sure you want to clear all alert history?"
-                );
-
-
-            if (!confirmClear) {
-                return;
-            }
-
-
-            try {
-
-                await historyRef.set([]);
-
-
-                alert(
-                    "🗑️ Alert history cleared."
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "History clear error:",
-                    error
-                );
-
-
-                alert(
-                    "❌ Could not clear history."
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// =====================================================
-// COPY EMERGENCY NUMBER
-// =====================================================
-
-function copyEmergencyNumber(number) {
-
-    navigator.clipboard
-        .writeText(number)
-
-        .then(
-            function () {
-
-                alert(
-                    "📋 Emergency number copied: " +
-                    number
-                );
-
-            }
-        )
-
-        .catch(
-            function () {
-
-                alert(
-                    "Emergency number: " +
-                    number
-                );
-
-            }
-        );
-
-}
-
-
-// =====================================================
-// IMPORTANT
-// =====================================================
-//
-// Firebase is now the ONLY source of truth.
-//
-// We intentionally DO NOT use:
-//
-// localStorage.setItem(
-//     "activeDisasterAlerts"
-// )
-//
-// for alerts.
-//
-// This prevents a resolved alert from coming back.
-//
-// =====================================================
-
-console.log(
-    "🛡️ SafeGuard Firebase system loaded successfully."
-);
-
-// =====================================================
-// DISASTER LOCATION MAP
-// =====================================================
-
-let disasterMap = null;
-let disasterMarker = null;
-
-
-// Common locations for the project
-const locationCoordinates = {
-
-    "Kalamboli": [19.0169, 73.1009],
-
-    "Panvel": [18.9894, 73.1175],
-
-    "Navi Mumbai": [19.0330, 73.0297],
-
-    "Kharghar": [19.0473, 73.0699],
-
-    "Kamothe": [19.0167, 73.0800],
-
-    "New Panvel": [18.9880, 73.1100],
-
-    "Seawoods": [19.0178, 73.0169],
-
-    "Vashi": [19.0771, 72.9980],
-
-    "Belapur": [19.0178, 73.0418],
-
-    "Mumbai": [19.0760, 72.8777]
-
-};
-
-
-// =====================================================
-// CREATE MAP
+// MAP INITIALIZATION
 // =====================================================
 
 function initializeDisasterMap() {
 
     const mapElement =
-        document.getElementById("map");
+        document.getElementById(
+            "map"
+        );
 
 
     if (!mapElement) {
@@ -1031,47 +1240,513 @@ function initializeDisasterMap() {
     }
 
 
-    // Prevent creating the map more than once
+    if (
+        typeof L ===
+        "undefined"
+    ) {
+
+        console.error(
+            "Leaflet is not loaded."
+        );
+
+        return;
+
+    }
+
+
     if (disasterMap) {
         return;
     }
 
 
-    // Default location: Kalamboli
-    disasterMap = L.map("map").setView(
-        locationCoordinates["Kalamboli"],
-        13
-    );
+    mapElement.innerHTML = "";
 
 
-    // OpenStreetMap tiles
-    L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-            maxZoom: 19,
-
-            attribution:
-                '&copy; OpenStreetMap contributors'
-        }
-    ).addTo(disasterMap);
-
-
-    // Default marker
-    disasterMarker =
-        L.marker(
-            locationCoordinates["Kalamboli"]
-        )
-        .addTo(disasterMap)
-        .bindPopup(
-            "📍 SafeGuard Disaster Location"
+    disasterMap =
+        L.map(
+            "map"
         );
 
 
-    // Fix map size calculation
+    disasterMap.setView(
+        [
+            19.0330,
+            73.0297
+        ],
+        11
+    );
+
+
+    L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+
+            maxZoom: 19,
+
+            attribution:
+                "&copy; OpenStreetMap contributors"
+
+        }
+    ).addTo(
+        disasterMap
+    );
+
+
     setTimeout(
         function () {
 
             disasterMap.invalidateSize();
+
+        },
+        500
+    );
+
+}
+
+
+// =====================================================
+// MAP - REMOVE MARKERS
+// =====================================================
+
+function removeAllMapMarkers() {
+
+    if (!disasterMap) {
+        return;
+    }
+
+
+    disasterMarkers.forEach(
+        function (marker) {
+
+            disasterMap.removeLayer(
+                marker
+            );
+
+        }
+    );
+
+
+    disasterMarkers = [];
+
+}
+
+
+// =====================================================
+// MAP - GEOCODING
+// =====================================================
+
+async function geocodeLocation(
+    location
+) {
+
+    try {
+
+        const cleanLocation =
+            String(
+                location || ""
+            ).trim();
+
+
+        if (!cleanLocation) {
+            return null;
+        }
+
+
+        const query =
+            encodeURIComponent(
+                cleanLocation +
+                ", Maharashtra, India"
+            );
+
+
+        const url =
+            "https://nominatim.openstreetmap.org/search" +
+            "?format=json" +
+            "&q=" +
+            query +
+            "&limit=1";
+
+
+        const response =
+            await fetch(
+                url,
+                {
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+
+        if (!response.ok) {
+            return null;
+        }
+
+
+        const results =
+            await response.json();
+
+
+        if (
+            !results ||
+            results.length === 0
+        ) {
+
+            return null;
+
+        }
+
+
+        return {
+
+            lat:
+                parseFloat(
+                    results[0].lat
+                ),
+
+            lng:
+                parseFloat(
+                    results[0].lon
+                )
+
+        };
+
+
+    } catch (error) {
+
+        console.error(
+            "Geocoding error:",
+            error
+        );
+
+
+        return null;
+
+    }
+
+}
+
+
+// =====================================================
+// MAP - UPDATE
+// =====================================================
+
+async function updateDisasterMap(
+    alerts
+) {
+
+    if (!disasterMap) {
+        return;
+    }
+
+
+    // -----------------------------------------
+    // CREATE UNIQUE UPDATE VERSION
+    // -----------------------------------------
+
+    const thisUpdate =
+        ++mapUpdateVersion;
+
+
+    // -----------------------------------------
+    // REMOVE OLD MARKERS IMMEDIATELY
+    // -----------------------------------------
+
+    removeAllMapMarkers();
+
+
+    // -----------------------------------------
+    // NO ACTIVE ALERT
+    // -----------------------------------------
+
+    if (
+        !alerts ||
+        alerts.length === 0
+    ) {
+
+        disasterMap.setView(
+            [
+                19.0330,
+                73.0297
+            ],
+            11
+        );
+
+
+        setTimeout(
+            function () {
+
+                disasterMap.invalidateSize();
+
+            },
+            100
+        );
+
+
+        return;
+    }
+
+
+    const locations = [];
+
+
+    // -----------------------------------------
+    // GEOCODE EACH CURRENT ALERT
+    // -----------------------------------------
+
+    for (
+        const alertData of alerts
+    ) {
+
+        // If Firebase changed while
+        // geocoding was happening,
+        // stop this old update.
+        if (
+            thisUpdate !==
+            mapUpdateVersion
+        ) {
+
+            return;
+
+        }
+
+
+        const location =
+            String(
+                alertData.location || ""
+            ).trim();
+
+
+        if (!location) {
+            continue;
+        }
+
+
+        const coordinates =
+            await geocodeLocation(
+                location
+            );
+
+
+        // VERY IMPORTANT:
+        // Ignore old map requests.
+        if (
+            thisUpdate !==
+            mapUpdateVersion
+        ) {
+
+            return;
+
+        }
+
+
+        if (!coordinates) {
+
+            console.warn(
+                "Could not locate:",
+                location
+            );
+
+            continue;
+
+        }
+
+
+        locations.push({
+
+            alert:
+                alertData,
+
+            lat:
+                coordinates.lat,
+
+            lng:
+                coordinates.lng
+
+        });
+
+    }
+
+
+    // -----------------------------------------
+    // CHECK AGAIN
+    // -----------------------------------------
+
+    if (
+        thisUpdate !==
+        mapUpdateVersion
+    ) {
+
+        return;
+
+    }
+
+
+    // -----------------------------------------
+    // NO VALID LOCATIONS
+    // -----------------------------------------
+
+    if (locations.length === 0) {
+
+        disasterMap.setView(
+            [
+                19.0330,
+                73.0297
+            ],
+            11
+        );
+
+        return;
+
+    }
+
+
+    // -----------------------------------------
+    // CREATE CURRENT MARKERS
+    // -----------------------------------------
+
+    locations.forEach(
+        function (item) {
+
+            // Ignore if newer update arrived
+            if (
+                thisUpdate !==
+                mapUpdateVersion
+            ) {
+
+                return;
+
+            }
+
+
+            const marker =
+                L.marker(
+                    [
+                        item.lat,
+                        item.lng
+                    ]
+                ).addTo(
+                    disasterMap
+                );
+
+
+            marker.bindPopup(`
+
+                <strong>
+
+                    ${getDisasterIcon(
+                        item.alert.disaster
+                    )}
+
+                    ${escapeHTML(
+                        item.alert.disaster
+                    )}
+                    Alert
+
+                </strong>
+
+                <br><br>
+
+                📍
+                ${escapeHTML(
+                    item.alert.location
+                )}
+
+                <br>
+
+                ⚠️ Severity:
+                ${escapeHTML(
+                    item.alert.severity
+                )}
+
+                <br>
+
+                🕐
+                ${escapeHTML(
+                    item.alert.time
+                )}
+
+            `);
+
+
+            disasterMarkers.push(
+                marker
+            );
+
+        }
+    );
+
+
+    // -----------------------------------------
+    // FIT MAP TO CURRENT MARKERS
+    // -----------------------------------------
+
+    if (
+        disasterMarkers.length === 1
+    ) {
+
+        disasterMap.setView(
+            disasterMarkers[0].getLatLng(),
+            14,
+            {
+                animate: true
+            }
+        );
+
+    } else if (
+        disasterMarkers.length > 1
+    ) {
+
+        const bounds =
+            L.latLngBounds([]);
+
+
+        disasterMarkers.forEach(
+            function (marker) {
+
+                bounds.extend(
+                    marker.getLatLng()
+                );
+
+            }
+        );
+
+
+        disasterMap.fitBounds(
+            bounds,
+            {
+
+                padding:
+                    [
+                        40,
+                        40
+                    ],
+
+                maxZoom:
+                    14,
+
+                animate:
+                    true
+
+            }
+        );
+
+    }
+
+
+    setTimeout(
+        function () {
+
+            if (
+                disasterMap &&
+                thisUpdate ===
+                    mapUpdateVersion
+            ) {
+
+                disasterMap.invalidateSize();
+
+            }
 
         },
         300
@@ -1081,162 +1756,55 @@ function initializeDisasterMap() {
 
 
 // =====================================================
-// UPDATE MAP LOCATION
+// MAP START
 // =====================================================
 
-function updateDisasterMap(activeAlerts) {
+if (
+    document.readyState ===
+    "loading"
+) {
 
-    if (!disasterMap) {
-        return;
-    }
-
-
-    if (
-        !activeAlerts ||
-        activeAlerts.length === 0
-    ) {
-
-        // No active alert
-        disasterMap.setView(
-            locationCoordinates["Kalamboli"],
-            13
-        );
-
-
-        if (disasterMarker) {
-
-            disasterMarker.setLatLng(
-                locationCoordinates["Kalamboli"]
-            );
-
-            disasterMarker.setPopupContent(
-                "📍 No active disaster alert"
-            );
-
-        }
-
-        return;
-    }
-
-
-    // Use the newest active alert
-    const latestAlert =
-        activeAlerts[
-            activeAlerts.length - 1
-        ];
-
-
-    const location =
-        latestAlert.location
-            ? latestAlert.location.trim()
-            : "Kalamboli";
-
-
-    // Try to find exact known location
-    let coordinates =
-        locationCoordinates[location];
-
-
-    // Try case-insensitive matching
-    if (!coordinates) {
-
-        const matchingLocation =
-            Object.keys(
-                locationCoordinates
-            ).find(
-                function (name) {
-
-                    return name.toLowerCase() ===
-                        location.toLowerCase();
-
-                }
-            );
-
-
-        if (matchingLocation) {
-
-            coordinates =
-                locationCoordinates[
-                    matchingLocation
-                ];
-
-        }
-
-    }
-
-
-    // If location isn't in our list,
-    // use Kalamboli as safe fallback.
-    if (!coordinates) {
-
-        coordinates =
-            locationCoordinates["Kalamboli"];
-
-    }
-
-
-    // Move map
-    disasterMap.setView(
-        coordinates,
-        14,
-        {
-            animate: true
-        }
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeDisasterMap
     );
 
+} else {
 
-    // Move marker
-    if (disasterMarker) {
-
-        disasterMarker.setLatLng(
-            coordinates
-        );
-
-
-        disasterMarker.setPopupContent(
-
-            "🚨 <strong>" +
-            latestAlert.disaster +
-            " Alert</strong><br>" +
-
-            "📍 " +
-            location +
-            "<br>" +
-
-            "⚠️ Severity: " +
-            latestAlert.severity
-
-        );
-
-    }
+    initializeDisasterMap();
 
 }
 
 
 // =====================================================
-// START MAP
+// MAP RESIZE
 // =====================================================
 
-initializeDisasterMap();
+window.addEventListener(
+    "resize",
+    function () {
 
+        if (disasterMap) {
 
-// =====================================================
-// CONNECT MAP TO FIREBASE
-// =====================================================
+            setTimeout(
+                function () {
 
-activeAlertsRef.on(
-    "value",
-    function (snapshot) {
+                    disasterMap.invalidateSize();
 
-        const activeAlerts =
-            toArray(
-                snapshot.val()
+                },
+                100
             );
 
-
-        updateDisasterMap(
-            activeAlerts
-        );
+        }
 
     }
+);
+
+
+// =====================================================
+// FINAL
+// =====================================================
+
+console.log(
+    "🛡️ SafeGuard FINAL script.js loaded."
 );
