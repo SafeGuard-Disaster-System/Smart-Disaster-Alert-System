@@ -74,6 +74,152 @@ function getDisasterIcon(disaster) {
     return icons[disaster] || "⚠️";
 }
 
+// =====================================================
+// ADMIN - DASHBOARD STATISTICS
+// =====================================================
+
+async function updateDashboardStatistics() {
+
+    const activeElement =
+        document.getElementById(
+            "statActiveAlerts"
+        );
+
+    const resolvedElement =
+        document.getElementById(
+            "statResolvedAlerts"
+        );
+
+    const totalElement =
+        document.getElementById(
+            "statTotalAlerts"
+        );
+
+    const highElement =
+        document.getElementById(
+            "statHighSeverity"
+        );
+
+
+    // Statistics exist only on the Admin page.
+    if (
+        !activeElement ||
+        !resolvedElement ||
+        !totalElement ||
+        !highElement
+    ) {
+        return;
+    }
+
+
+    try {
+
+        // Get current active alerts
+        const activeSnapshot =
+            await activeAlertsRef.once(
+                "value"
+            );
+
+        // Get complete alert history
+        const historySnapshot =
+            await historyRef.once(
+                "value"
+            );
+
+
+        const activeAlerts =
+            toArray(
+                activeSnapshot.val()
+            );
+
+        const history =
+            toArray(
+                historySnapshot.val()
+            );
+
+
+        // -------------------------------------------------
+        // ACTIVE ALERTS
+        // -------------------------------------------------
+
+        const activeCount =
+            activeAlerts.length;
+
+
+        // -------------------------------------------------
+        // RESOLVED ALERTS
+        // -------------------------------------------------
+
+        const resolvedCount =
+            history.filter(
+                function (alertData) {
+
+                    return (
+                        String(
+                            alertData.status || ""
+                        ).toLowerCase() ===
+                        "resolved"
+                    );
+
+                }
+            ).length;
+
+
+        // -------------------------------------------------
+        // TOTAL ALERTS
+        // -------------------------------------------------
+
+        const totalCount =
+            history.length;
+
+
+        // -------------------------------------------------
+        // HIGH-SEVERITY ACTIVE ALERTS
+        // -------------------------------------------------
+
+        const highSeverityCount =
+            activeAlerts.filter(
+                function (alertData) {
+
+                    return (
+                        String(
+                            alertData.severity || ""
+                        ).toLowerCase() ===
+                        "high"
+                    );
+
+                }
+            ).length;
+
+
+        // -------------------------------------------------
+        // UPDATE THE CARDS
+        // -------------------------------------------------
+
+        activeElement.textContent =
+            activeCount;
+
+        resolvedElement.textContent =
+            resolvedCount;
+
+        totalElement.textContent =
+            totalCount;
+
+        highElement.textContent =
+            highSeverityCount;
+
+
+    } catch (error) {
+
+        console.error(
+            "Dashboard statistics error:",
+            error
+        );
+
+    }
+
+}
+
 
 // =====================================================
 // SAFETY INSTRUCTIONS
@@ -1198,6 +1344,8 @@ activeAlertsRef.on(
             alerts
         );
 
+        updateDashboardStatistics();
+
     },
     function (error) {
 
@@ -1227,6 +1375,8 @@ historyRef.on(
         displayAlertHistory(
             history
         );
+
+        updateDashboardStatistics();
 
     }
 );
