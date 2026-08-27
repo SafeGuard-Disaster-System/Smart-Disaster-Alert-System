@@ -743,10 +743,9 @@ function displayAdminActiveAlerts(
 
                         &nbsp; • &nbsp;
 
-                        ⚠️
-                        ${escapeHTML(
-                            alertData.severity
-                        )}
+                        <span class="severity-badge severity-${String(alertData.severity).toLowerCase()}">
+                            ${escapeHTML(alertData.severity)}
+                        </span>
 
                         &nbsp; • &nbsp;
 
