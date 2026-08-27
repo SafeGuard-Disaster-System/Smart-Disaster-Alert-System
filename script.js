@@ -1808,3 +1808,292 @@ window.addEventListener(
 console.log(
     "🛡️ SafeGuard FINAL script.js loaded."
 );
+
+// =====================================================
+// BROWSER NOTIFICATIONS
+// =====================================================
+
+const enableNotificationsButton =
+    document.getElementById(
+        "enableNotifications"
+    );
+
+
+// Ask the user for notification permission
+async function enableBrowserNotifications() {
+
+    if (
+        !("Notification" in window)
+    ) {
+
+        alert(
+            "Your browser does not support notifications."
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        const permission =
+            await Notification.requestPermission();
+
+
+        if (
+            permission === "granted"
+        ) {
+
+            if (
+                enableNotificationsButton
+            ) {
+
+                enableNotificationsButton.textContent =
+                    "🔔 Notifications Enabled";
+
+                enableNotificationsButton.disabled =
+                    true;
+
+            }
+
+
+            console.log(
+                "🔔 Browser notifications enabled."
+            );
+
+
+        } else {
+
+            alert(
+                "Notifications were not enabled. Please allow notifications in your browser settings."
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Notification permission error:",
+            error
+        );
+
+    }
+
+}
+
+
+// Enable button
+if (
+    enableNotificationsButton
+) {
+
+    // If already allowed
+    if (
+        "Notification" in window &&
+        Notification.permission ===
+            "granted"
+    ) {
+
+        enableNotificationsButton.textContent =
+            "🔔 Notifications Enabled";
+
+        enableNotificationsButton.disabled =
+            true;
+
+    }
+
+
+    enableNotificationsButton.addEventListener(
+        "click",
+        enableBrowserNotifications
+    );
+
+}
+
+
+// =====================================================
+// NOTIFY WHEN A NEW ALERT ARRIVES
+// =====================================================
+
+let previousAlertIds =
+    new Set();
+
+
+let notificationsInitialized =
+    false;
+
+
+function checkForNewAlerts(
+    alerts
+) {
+
+    if (
+        !Array.isArray(alerts)
+    ) {
+
+        return;
+
+    }
+
+
+    const currentAlertIds =
+        new Set(
+            alerts.map(
+                function (alertData) {
+
+                    return String(
+                        alertData.id
+                    );
+
+                }
+            )
+        );
+
+
+    // First Firebase load:
+    // remember existing alerts but
+    // DON'T notify the user.
+    if (
+        !notificationsInitialized
+    ) {
+
+        previousAlertIds =
+            currentAlertIds;
+
+        notificationsInitialized =
+            true;
+
+        return;
+
+    }
+
+
+    // Find newly-created alerts
+    alerts.forEach(
+        function (alertData) {
+
+            const alertId =
+                String(
+                    alertData.id
+                );
+
+
+            if (
+                previousAlertIds.has(
+                    alertId
+                )
+            ) {
+
+                return;
+
+            }
+
+
+            // Remember the new alert
+            previousAlertIds.add(
+                alertId
+            );
+
+
+            // Only notify if permission
+            // has already been granted.
+            if (
+                !("Notification" in window)
+            ) {
+
+                return;
+
+            }
+
+
+            if (
+                Notification.permission !==
+                "granted"
+            ) {
+
+                return;
+
+            }
+
+
+            const disaster =
+                alertData.disaster ||
+                "Emergency";
+
+
+            const location =
+                alertData.location ||
+                "Unknown location";
+
+
+            const severity =
+                alertData.severity ||
+                "Unknown";
+
+
+            const message =
+                alertData.message ||
+                "A new emergency alert has been issued.";
+
+
+            new Notification(
+                "🚨 SafeGuard Emergency Alert",
+                {
+
+                    body:
+                        getDisasterIcon(
+                            disaster
+                        ) +
+                        " " +
+                        disaster +
+                        "\n" +
+                        "📍 " +
+                        location +
+                        "\n" +
+                        "⚠️ Severity: " +
+                        severity +
+                        "\n\n" +
+                        message,
+
+                    tag:
+                        "safeguard-" +
+                        alertId
+
+                }
+            );
+
+        }
+    );
+
+
+    // Remove IDs that are no longer active
+    previousAlertIds =
+        new Set(
+            currentAlertIds
+        );
+
+}
+
+
+// =====================================================
+// WATCH FIREBASE FOR NEW ALERTS
+// =====================================================
+
+activeAlertsRef.on(
+    "value",
+    function (snapshot) {
+
+        const alerts =
+            toArray(
+                snapshot.val()
+            );
+
+
+        checkForNewAlerts(
+            alerts
+        );
+
+    }
+);
