@@ -1,4 +1,39 @@
 // =====================================================
+// BROWSER NOTIFICATIONS
+// =====================================================
+
+if ("Notification" in window) {
+    if (Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+}
+
+// =====================================================
+// SHOW BROWSER NOTIFICATION
+// =====================================================
+
+function showAlertNotification(alertData) {
+
+    if (!("Notification" in window)) {
+        return;
+    }
+
+    if (Notification.permission !== "granted") {
+        return;
+    }
+
+    new Notification(
+        `🚨 ${alertData.disaster} Alert`,
+        {
+            body:
+                `${alertData.location}\n\n` +
+                `${alertData.message}`,
+            icon: "🌍"
+        }
+    );
+}
+
+// =====================================================
 // SAFEGUARD DISASTER ALERT SYSTEM
 // FINAL SCRIPT.JS
 // =====================================================
@@ -637,6 +672,10 @@ if (alertForm) {
                     history
                 );
 
+                // Show browser notification
+                showAlertNotification(
+                    alertData
+                );
 
                 alertForm.reset();
 
