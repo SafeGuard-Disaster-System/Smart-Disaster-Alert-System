@@ -2608,3 +2608,50 @@ footer p {
     }
 
 }
+
+/* =====================================================
+   MAP ALERT POPUP
+===================================================== */
+
+.map-alert-popup {
+    min-width: 220px;
+    max-width: 280px;
+    line-height: 1.5;
+}
+
+.map-popup-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    color: #0f172a;
+}
+
+.map-alert-popup hr {
+    margin: 10px 0;
+    border: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.map-popup-row {
+    margin: 7px 0;
+    color: #475569;
+    font-size: 13px;
+}
+
+.map-popup-row strong {
+    color: #1e293b;
+}
+
+.map-popup-message {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.map-popup-message strong {
+    color: #1e293b;
+}

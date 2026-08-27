@@ -2081,39 +2081,59 @@ async function updateDisasterMap(
 
             marker.bindPopup(`
 
-                <strong>
+                <div class="map-alert-popup">
 
-                    ${getDisasterIcon(
-                        item.alert.disaster
-                    )}
+                    <strong class="map-popup-title">
 
-                    ${escapeHTML(
-                        item.alert.disaster
-                    )}
-                    Alert
+                        ${getDisasterIcon(
+                            item.alert.disaster
+                        )}
 
-                </strong>
+                        ${escapeHTML(
+                            item.alert.disaster
+                        )}
+                        Alert
 
-                <br><br>
+                    </strong>
 
-                📍
-                ${escapeHTML(
-                    item.alert.location
-                )}
+                    <hr>
 
-                <br>
+                    <div class="map-popup-row">
+                        📍
+                        <strong>Location:</strong>
+                        ${escapeHTML(
+                            item.alert.location
+                        )}
+                    </div>
 
-                ⚠️ Severity:
-                ${escapeHTML(
-                    item.alert.severity
-                )}
+                    <div class="map-popup-row">
+                        ⚠️
+                        <strong>Severity:</strong>
+                        <span class="severity-badge severity-${String(
+                            item.alert.severity
+                        ).toLowerCase()}">
+                            ${escapeHTML(
+                                item.alert.severity
+                            )}
+                        </span>
+                    </div>
 
-                <br>
+                    <div class="map-popup-row">
+                        🕐
+                        <strong>Time:</strong>
+                        ${escapeHTML(
+                            item.alert.time
+                        )}
+                    </div>
 
-                🕐
-                ${escapeHTML(
-                    item.alert.time
-                )}
+                    <div class="map-popup-message">
+                        <strong>Message:</strong><br>
+                        ${escapeHTML(
+                            item.alert.message
+                        )}
+                    </div>
+
+                </div>
 
             `);
 
