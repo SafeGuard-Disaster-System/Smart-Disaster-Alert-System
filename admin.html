@@ -465,6 +465,108 @@
 
             </div>
 
+            <!-- =================================================
+                ALERT SEARCH & FILTERS
+            ================================================== -->
+
+            <div class="alert-filters">
+
+                <div class="filter-search">
+
+                    <label for="alertSearch">
+                        🔎 Search Alerts
+                    </label>
+
+                    <input
+                        type="text"
+                        id="alertSearch"
+                        placeholder="Search location or message..."
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="filter-select">
+
+                    <label for="filterDisaster">
+                        Disaster Type
+                    </label>
+
+                    <select id="filterDisaster">
+
+                        <option value="all">
+                            All Disasters
+                        </option>
+
+                        <option value="Flood">
+                            🌊 Flood
+                        </option>
+
+                        <option value="Cyclone">
+                            🌪️ Cyclone
+                        </option>
+
+                        <option value="Earthquake">
+                            🌍 Earthquake
+                        </option>
+
+                        <option value="Fire">
+                            🔥 Fire
+                        </option>
+
+                        <option value="Landslide">
+                            ⛰️ Landslide
+                        </option>
+
+                        <option value="Tsunami">
+                            🌊 Tsunami
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="filter-select">
+
+                    <label for="filterSeverity">
+                        Severity
+                    </label>
+
+                    <select id="filterSeverity">
+
+                        <option value="all">
+                            All Severity
+                        </option>
+
+                        <option value="Low">
+                            🟢 Low
+                        </option>
+
+                        <option value="Medium">
+                            🟠 Medium
+                        </option>
+
+                        <option value="High">
+                            🔴 High
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    id="clearAlertFilters"
+                    class="clear-filter-button"
+                >
+                    Clear Filters
+                </button>
+
+            </div>
+
 
             <div
                 id="adminActiveAlerts"

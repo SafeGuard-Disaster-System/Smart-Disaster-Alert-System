@@ -220,6 +220,214 @@ async function updateDashboardStatistics() {
 
 }
 
+// =====================================================
+// ALERT SEARCH & FILTER
+// =====================================================
+
+let currentActiveAlerts = [];
+
+let alertSearchText = "";
+
+let selectedDisaster =
+    "all";
+
+let selectedSeverity =
+    "all";
+
+
+// -----------------------------------------------------
+// FILTER ACTIVE ALERTS
+// -----------------------------------------------------
+
+function filterActiveAlerts() {
+
+    const filteredAlerts =
+        currentActiveAlerts.filter(
+            function (alertData) {
+
+                const searchText =
+                    alertSearchText
+                        .toLowerCase()
+                        .trim();
+
+
+                const location =
+                    String(
+                        alertData.location || ""
+                    ).toLowerCase();
+
+
+                const message =
+                    String(
+                        alertData.message || ""
+                    ).toLowerCase();
+
+
+                const disaster =
+                    String(
+                        alertData.disaster || ""
+                    );
+
+
+                const severity =
+                    String(
+                        alertData.severity || ""
+                    );
+
+
+                // Search
+                const matchesSearch =
+                    !searchText ||
+                    location.includes(
+                        searchText
+                    ) ||
+                    message.includes(
+                        searchText
+                    );
+
+
+                // Disaster filter
+                const matchesDisaster =
+                    selectedDisaster === "all" ||
+                    disaster === selectedDisaster;
+
+
+                // Severity filter
+                const matchesSeverity =
+                    selectedSeverity === "all" ||
+                    severity === selectedSeverity;
+
+
+                return (
+                    matchesSearch &&
+                    matchesDisaster &&
+                    matchesSeverity
+                );
+
+            }
+        );
+
+
+    displayAdminActiveAlerts(
+        filteredAlerts
+    );
+
+}
+
+
+// -----------------------------------------------------
+// CONNECT FILTER CONTROLS
+// -----------------------------------------------------
+
+function setupAlertFilters() {
+
+    const searchInput =
+        document.getElementById(
+            "alertSearch"
+        );
+
+    const disasterFilter =
+        document.getElementById(
+            "filterDisaster"
+        );
+
+    const severityFilter =
+        document.getElementById(
+            "filterSeverity"
+        );
+
+    const clearButton =
+        document.getElementById(
+            "clearAlertFilters"
+        );
+
+
+    // If this page doesn't contain
+    // the filters, stop safely.
+    if (
+        !searchInput ||
+        !disasterFilter ||
+        !severityFilter ||
+        !clearButton
+    ) {
+        return;
+    }
+
+
+    // Search
+    searchInput.addEventListener(
+        "input",
+        function () {
+
+            alertSearchText =
+                searchInput.value;
+
+            filterActiveAlerts();
+
+        }
+    );
+
+
+    // Disaster
+    disasterFilter.addEventListener(
+        "change",
+        function () {
+
+            selectedDisaster =
+                disasterFilter.value;
+
+            filterActiveAlerts();
+
+        }
+    );
+
+
+    // Severity
+    severityFilter.addEventListener(
+        "change",
+        function () {
+
+            selectedSeverity =
+                severityFilter.value;
+
+            filterActiveAlerts();
+
+        }
+    );
+
+
+    // Clear
+    clearButton.addEventListener(
+        "click",
+        function () {
+
+            searchInput.value =
+                "";
+
+            disasterFilter.value =
+                "all";
+
+            severityFilter.value =
+                "all";
+
+
+            alertSearchText =
+                "";
+
+            selectedDisaster =
+                "all";
+
+            selectedSeverity =
+                "all";
+
+
+            filterActiveAlerts();
+
+        }
+    );
+
+}
+
 
 // =====================================================
 // SAFETY INSTRUCTIONS
@@ -595,7 +803,6 @@ function displayAdminActiveAlerts(
     );
 
 }
-
 
 // =====================================================
 // ADMIN - RESOLVE ALERT
@@ -1335,9 +1542,10 @@ activeAlertsRef.on(
         );
 
 
-        displayAdminActiveAlerts(
-            alerts
-        );
+        currentActiveAlerts =
+            alerts;
+
+        filterActiveAlerts();
 
 
         displayUserActiveAlerts(
@@ -2585,3 +2793,9 @@ if (locationInput) {
     );
 
 }
+
+// =====================================================
+// INITIALIZE ALERT FILTERS
+// =====================================================
+
+setupAlertFilters();
