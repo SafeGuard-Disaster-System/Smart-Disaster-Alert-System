@@ -2186,3 +2186,38 @@ footer p {
     }
 
 }
+
+/* =====================================================
+   MOBILE MAP FIX
+===================================================== */
+
+@media (max-width: 600px) {
+
+    .map-card {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    #map {
+        width: 100%;
+        height: 360px;
+        min-height: 360px;
+        touch-action: pan-x pan-y;
+    }
+
+    .leaflet-container {
+        width: 100%;
+        height: 100%;
+        min-height: 360px;
+    }
+
+    .leaflet-control-zoom {
+        margin-right: 8px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .leaflet-popup-content {
+        max-width: 220px;
+        font-size: 13px;
+    }
+}
