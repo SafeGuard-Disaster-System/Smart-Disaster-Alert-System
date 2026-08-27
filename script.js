@@ -211,6 +211,15 @@ if (alertForm) {
                 location:
                     location,
 
+                latitude:
+                    locationInput?.dataset.lat || null,
+
+                longitude:
+                    locationInput?.dataset.lng || null,
+
+                locationDisplayName:
+                    locationInput?.dataset.displayName || location,
+
                 severity:
                     severity,
 
@@ -1492,7 +1501,7 @@ async function updateDisasterMap(
 
 
     // -----------------------------------------
-    // GEOCODE EACH CURRENT ALERT
+    // GET EXACT COORDINATES FOR EACH ALERT
     // -----------------------------------------
 
     for (
@@ -1500,15 +1509,13 @@ async function updateDisasterMap(
     ) {
 
         // If Firebase changed while
-        // geocoding was happening,
+        // processing was happening,
         // stop this old update.
         if (
             thisUpdate !==
             mapUpdateVersion
         ) {
-
             return;
-
         }
 
 
@@ -1523,21 +1530,67 @@ async function updateDisasterMap(
         }
 
 
+        let latitude =
+            Number(
+                alertData.latitude
+            );
+
+        let longitude =
+            Number(
+                alertData.longitude
+            );
+
+
+        // -------------------------------------------------
+        // USE SAVED EXACT COORDINATES FIRST
+        // -------------------------------------------------
+
+        if (
+            Number.isFinite(latitude) &&
+            Number.isFinite(longitude) &&
+            latitude >= -90 &&
+            latitude <= 90 &&
+            longitude >= -180 &&
+            longitude <= 180
+        ) {
+
+            locations.push({
+
+                alert:
+                    alertData,
+
+                lat:
+                    latitude,
+
+                lng:
+                    longitude
+
+            });
+
+
+            continue;
+        }
+
+
+        // -------------------------------------------------
+        // FALLBACK FOR OLD ALERTS
+        // -------------------------------------------------
+        // Old alerts created before latitude/longitude
+        // were added will still work.
+
         const coordinates =
             await geocodeLocation(
                 location
             );
 
 
-        // VERY IMPORTANT:
-        // Ignore old map requests.
+        // Check again after the
+        // asynchronous request.
         if (
             thisUpdate !==
             mapUpdateVersion
         ) {
-
             return;
-
         }
 
 
@@ -1549,7 +1602,6 @@ async function updateDisasterMap(
             );
 
             continue;
-
         }
 
 
@@ -1623,8 +1675,8 @@ async function updateDisasterMap(
             const marker =
                 L.marker(
                     [
-                        item.lat,
-                        item.lng
+                        Number(item.lat),
+                        Number(item.lng)
                     ]
                 ).addTo(
                     disasterMap
@@ -2097,3 +2149,289 @@ activeAlertsRef.on(
 
     }
 );
+
+// =====================================================
+// ADMIN LOCATION SEARCH
+// =====================================================
+
+const locationInput =
+    document.getElementById("location");
+
+const locationSuggestions =
+    document.getElementById(
+        "locationSuggestions"
+    );
+
+let locationSearchTimer = null;
+
+
+// -----------------------------------------------------
+// Search locations using OpenStreetMap
+// -----------------------------------------------------
+
+async function searchAdminLocations(query) {
+
+    if (!locationSuggestions) {
+        return;
+    }
+
+    query = query.trim();
+
+    if (query.length < 3) {
+
+        locationSuggestions.innerHTML = "";
+
+        return;
+    }
+
+
+    locationSuggestions.innerHTML = `
+        <div class="location-loading">
+            🔍 Searching...
+        </div>
+    `;
+
+
+    try {
+
+        const url =
+            "https://nominatim.openstreetmap.org/search" +
+            "?format=json" +
+            "&addressdetails=1" +
+            "&limit=5" +
+            "&countrycodes=in" +
+            "&q=" +
+            encodeURIComponent(query);
+
+
+        const response =
+            await fetch(url, {
+                headers: {
+                    "Accept":
+                        "application/json"
+                }
+            });
+
+
+        if (!response.ok) {
+            throw new Error(
+                "Location search failed"
+            );
+        }
+
+
+        const results =
+            await response.json();
+
+
+        if (
+            !results ||
+            results.length === 0
+        ) {
+
+            locationSuggestions.innerHTML = `
+                <div class="location-no-result">
+                    No location found.
+                </div>
+            `;
+
+            return;
+        }
+
+
+        locationSuggestions.innerHTML = "";
+
+
+        results.forEach(
+            function(result) {
+
+                const option =
+                    document.createElement(
+                        "button"
+                    );
+
+
+                option.type = "button";
+
+                option.className =
+                    "location-suggestion";
+
+
+                option.innerHTML = `
+                    <strong>
+                        📍 ${escapeHTML(
+                            result.display_name
+                        )}
+                    </strong>
+                `;
+
+
+                option.addEventListener(
+                    "click",
+                    function() {
+
+                        /*
+                         * Use the actual place name
+                         * rather than the entire
+                         * OpenStreetMap address.
+                         */
+
+                        const address =
+                            result.address || {};
+
+
+                        const selectedLocation =
+                            address.city ||
+                            address.town ||
+                            address.village ||
+                            address.suburb ||
+                            address.municipality ||
+                            result.name ||
+                            result.display_name;
+
+
+                        locationInput.value =
+                            selectedLocation;
+
+
+                        locationSuggestions.innerHTML =
+                            "";
+
+
+                        /*
+                         * Save exact coordinates.
+                         * The alert can use these later
+                         * for accurate map placement.
+                         */
+
+                        locationInput.dataset.lat =
+                            result.lat;
+
+
+                        locationInput.dataset.lng =
+                            result.lon;
+
+
+                        locationInput.dataset.displayName =
+                            result.display_name;
+
+
+                        console.log(
+                            "📍 Selected location:",
+                            selectedLocation
+                        );
+
+
+                        console.log(
+                            "Coordinates:",
+                            result.lat,
+                            result.lon
+                        );
+
+                    }
+                );
+
+
+                locationSuggestions.appendChild(
+                    option
+                );
+
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Location search error:",
+            error
+        );
+
+
+        locationSuggestions.innerHTML = `
+            <div class="location-no-result">
+                ❌ Unable to search locations.
+            </div>
+        `;
+
+    }
+
+}
+
+
+// -----------------------------------------------------
+// Location input
+// -----------------------------------------------------
+
+if (locationInput) {
+
+    locationInput.addEventListener(
+        "input",
+        function() {
+
+            clearTimeout(
+                locationSearchTimer
+            );
+
+
+            /*
+             * If the user changes the text
+             * manually, remove the previously
+             * selected coordinates.
+             */
+
+            delete locationInput.dataset.lat;
+            delete locationInput.dataset.lng;
+            delete locationInput.dataset.displayName;
+
+
+            const query =
+                locationInput.value;
+
+
+            locationSearchTimer =
+                setTimeout(
+                    function() {
+
+                        searchAdminLocations(
+                            query
+                        );
+
+                    },
+                    500
+                );
+
+        }
+    );
+
+
+    /*
+     * Close suggestions when the user
+     * clicks somewhere else.
+     */
+
+    document.addEventListener(
+        "click",
+        function(event) {
+
+            if (
+                !event.target.closest(
+                    ".location-picker"
+                )
+            ) {
+
+                if (
+                    locationSuggestions
+                ) {
+
+                    locationSuggestions.innerHTML =
+                        "";
+
+                }
+
+            }
+
+        }
+    );
+
+}

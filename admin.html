@@ -153,14 +153,26 @@
                             Affected Location
                         </label>
 
+                        <div class="location-picker">
 
-                        <input
-                            type="text"
-                            id="location"
-                            placeholder="Example: Kalamboli"
-                            autocomplete="off"
-                            required
-                        >
+                            <input
+                                type="text"
+                                id="location"
+                                placeholder="Search location, e.g. Borivali"
+                                autocomplete="off"
+                                required
+                            >
+
+                            <div
+                                id="locationSuggestions"
+                                class="location-suggestions"
+                            ></div>
+
+                        </div>
+
+                        <p class="location-help">
+                            📍 Type a location and select the correct result.
+                        </p>
 
                     </div>
 
