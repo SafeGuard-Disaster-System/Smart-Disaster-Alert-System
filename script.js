@@ -629,56 +629,83 @@ if (alertForm) {
 
             try {
 
+                // -------------------------------------------------
+                // 1. SAVE ACTIVE ALERT
+                // -------------------------------------------------
+
                 const activeSnapshot =
                     await activeAlertsRef.once(
                         "value"
                     );
-
 
                 const activeAlerts =
                     toArray(
                         activeSnapshot.val()
                     );
 
-
                 activeAlerts.push(
                     alertData
                 );
-
 
                 await activeAlertsRef.set(
                     activeAlerts
                 );
 
 
-                const historySnapshot =
-                    await historyRef.once(
-                        "value"
+                // -------------------------------------------------
+                // 2. SAVE TO ALERT HISTORY
+                //    History failure will NOT cancel the alert.
+                // -------------------------------------------------
+
+                try {
+
+                    const historySnapshot =
+                        await historyRef.once(
+                            "value"
+                        );
+
+                    const history =
+                        toArray(
+                            historySnapshot.val()
+                        );
+
+                    history.unshift(
+                        alertData
                     );
 
-
-                const history =
-                    toArray(
-                        historySnapshot.val()
+                    await historyRef.set(
+                        history
                     );
 
+                } catch (historyError) {
 
-                history.unshift(
-                    alertData
-                );
+                    console.error(
+                        "Alert history save failed:",
+                        historyError
+                    );
+
+                }
 
 
-                await historyRef.set(
-                    history
-                );
+                // -------------------------------------------------
+                // 3. SHOW NOTIFICATION
+                // -------------------------------------------------
 
-                // Show browser notification
                 showAlertNotification(
                     alertData
                 );
 
+
+                // -------------------------------------------------
+                // 4. CLEAR FORM
+                // -------------------------------------------------
+
                 alertForm.reset();
 
+
+                // -------------------------------------------------
+                // 5. SUCCESS MESSAGE
+                // -------------------------------------------------
 
                 alert(
                     "🚨 Disaster alert sent successfully!"
@@ -691,7 +718,6 @@ if (alertForm) {
                     "Send alert error:",
                     error
                 );
-
 
                 alert(
                     "❌ Could not send the alert."
