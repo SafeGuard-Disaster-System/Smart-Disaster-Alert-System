@@ -10623,3 +10623,419 @@ footer p {
  
 
 }
+
+ 
+
+/* =====================================================
+
+   SAFEGUARD MOBILE RESPONSIVE FIX
+
+   ===================================================== */
+
+ 
+
+html {
+
+    -webkit-text-size-adjust: 100%;
+
+}
+
+ 
+
+body {
+
+    overflow-x: hidden;
+
+}
+
+ 
+
+img,
+
+video,
+
+canvas,
+
+iframe {
+
+    max-width: 100%;
+
+}
+
+ 
+
+button,
+
+input,
+
+select,
+
+textarea {
+
+    font: inherit;
+
+}
+
+ 
+
+@media (max-width: 768px) {
+
+ 
+
+    .container,
+
+    .main-container,
+
+    .page-container,
+
+    .content-container {
+
+        width: 100%;
+
+        max-width: 100%;
+
+        margin-left: auto;
+
+        margin-right: auto;
+
+        padding-left: 16px;
+
+        padding-right: 16px;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    header,
+
+    .header,
+
+    .navbar,
+
+    nav {
+
+        width: 100%;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    .nav-container,
+
+    .navbar-container,
+
+    .header-container {
+
+        width: 100%;
+
+        max-width: 100%;
+
+        padding-left: 14px;
+
+        padding-right: 14px;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    .grid,
+
+    .cards-grid,
+
+    .dashboard-grid,
+
+    .alert-grid,
+
+    .contact-grid,
+
+    .info-grid {
+
+        grid-template-columns: 1fr !important;
+
+    }
+
+ 
+
+    .row {
+
+        flex-wrap: wrap;
+
+    }
+
+ 
+
+    .card,
+
+    .alert-card,
+
+    .contact-card,
+
+    .info-card,
+
+    .form-card,
+
+    .panel {
+
+        max-width: 100%;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    input,
+
+    select,
+
+    textarea {
+
+        width: 100%;
+
+        max-width: 100%;
+
+        box-sizing: border-box;
+
+        min-height: 44px;
+
+    }
+
+ 
+
+    button,
+
+    .btn,
+
+    .button {
+
+        min-height: 44px;
+
+        max-width: 100%;
+
+    }
+
+ 
+
+    .location-picker,
+
+    .location-suggestions {
+
+        width: 100%;
+
+        max-width: 100%;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    .location-suggestions {
+
+        overflow-x: hidden;
+
+    }
+
+ 
+
+    /* Leaflet maps need a real height on mobile. */
+
+    #disasterMap,
+
+    #map,
+
+    .map-container,
+
+    .map-wrapper {
+
+        width: 100% !important;
+
+        max-width: 100%;
+
+        min-height: 300px;
+
+        height: 55vh;
+
+        max-height: 500px;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    .leaflet-container {
+
+        width: 100% !important;
+
+        max-width: 100%;
+
+        min-height: 300px;
+
+    }
+
+ 
+
+    .map-alert-popup {
+
+        max-width: 260px;
+
+        word-break: break-word;
+
+    }
+
+ 
+
+    .table-container,
+
+    .table-responsive {
+
+        width: 100%;
+
+        overflow-x: auto;
+
+        -webkit-overflow-scrolling: touch;
+
+    }
+
+ 
+
+    table {
+
+        min-width: 600px;
+
+    }
+
+ 
+
+    .emergency-actions,
+
+    .contact-actions,
+
+    .alert-actions {
+
+        display: flex;
+
+        flex-wrap: wrap;
+
+        gap: 8px;
+
+    }
+
+ 
+
+    .emergency-actions > *,
+
+    .contact-actions > *,
+
+    .alert-actions > * {
+
+        flex: 1 1 120px;
+
+    }
+
+ 
+
+    .modal,
+
+    .modal-content,
+
+    .dialog {
+
+        width: calc(100% - 32px);
+
+        max-width: calc(100% - 32px);
+
+        box-sizing: border-box;
+
+        margin: 16px auto;
+
+    }
+
+ 
+
+    .footer {
+
+        padding-left: 16px;
+
+        padding-right: 16px;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+}
+
+ 
+
+@media (max-width: 480px) {
+
+ 
+
+    .container,
+
+    .main-container,
+
+    .page-container,
+
+    .content-container {
+
+        padding-left: 12px;
+
+        padding-right: 12px;
+
+    }
+
+ 
+
+    h1 {
+
+        font-size: clamp(1.5rem, 7vw, 2rem);
+
+    }
+
+ 
+
+    h2 {
+
+        font-size: clamp(1.25rem, 6vw, 1.6rem);
+
+    }
+
+ 
+
+    h3 {
+
+        font-size: clamp(1.05rem, 5vw, 1.3rem);
+
+    }
+
+ 
+
+    #disasterMap,
+
+    #map,
+
+    .map-container,
+
+    .map-wrapper,
+
+    .leaflet-container {
+
+        min-height: 280px;
+
+        height: 48vh;
+
+    }
+
+ 
+
+}
