@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+// =====================================================
 
  
 
@@ -6,7 +6,7 @@
 
  
 
-<html lang="en">
+// BROWSER NOTIFICATIONS
 
  
 
@@ -14,15 +14,5079 @@
 
  
 
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+if ("Notification" in window) {
+
+ 
+
+ 
+
+ 
+
+    if (Notification.permission === "default") {
+
+ 
+
+ 
+
+ 
+
+        Notification.requestPermission();
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// SHOW BROWSER NOTIFICATION
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function showAlertNotification(alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!("Notification" in window)) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (Notification.permission !== "granted") {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    new Notification(
+
+ 
+
+ 
+
+ 
+
+        `🚨 ${alertData.disaster} Alert`,
+
+ 
+
+ 
+
+ 
+
+        {
+
+ 
+
+ 
+
+ 
+
+            body:
+
+ 
+
+ 
+
+ 
+
+                `${alertData.location}\n\n` +
+
+ 
+
+ 
+
+ 
+
+                `${alertData.message}`,
+
+ 
+
+ 
+
+ 
+
+            icon: "🌍"
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// SAFEGUARD DISASTER ALERT SYSTEM
+
+ 
+
+ 
+
+ 
+
+// FINAL SCRIPT.JS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// FIREBASE
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const db = firebase.database();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const activeAlertsRef =
+
+ 
+
+ 
+
+ 
+
+    db.ref("activeDisasterAlerts");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const historyRef =
+
+ 
+
+ 
+
+ 
+
+    db.ref("alertHistory");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// GLOBAL VARIABLES
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let disasterMap = null;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let disasterMarkers = [];
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let mapUpdateVersion = 0;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// HELPERS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function toArray(data) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!data) {
+
+ 
+
+ 
+
+ 
+
+        return [];
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (Array.isArray(data)) {
+
+ 
+
+ 
+
+ 
+
+        return data;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    return Object.values(data);
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function escapeHTML(value) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const div =
+
+ 
+
+ 
+
+ 
+
+        document.createElement("div");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    div.textContent =
+
+ 
+
+ 
+
+ 
+
+        value == null ? "" : String(value);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    return div.innerHTML;
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function getDisasterIcon(disaster) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const icons = {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Flood: "🌊",
+
+ 
+
+ 
+
+ 
+
+        Cyclone: "🌪️",
+
+ 
+
+ 
+
+ 
+
+        Earthquake: "🌍",
+
+ 
+
+ 
+
+ 
+
+        Fire: "🔥",
+
+ 
+
+ 
+
+ 
+
+        Landslide: "⛰️",
+
+ 
+
+ 
+
+ 
+
+        Tsunami: "🌊"
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    };
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    return icons[disaster] || "⚠️";
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN - DASHBOARD STATISTICS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+async function updateDashboardStatistics() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const activeElement =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "statActiveAlerts"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const resolvedElement =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "statResolvedAlerts"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const totalElement =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "statTotalAlerts"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const highElement =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "statHighSeverity"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Statistics exist only on the Admin page.
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !activeElement ||
+
+ 
+
+ 
+
+ 
+
+        !resolvedElement ||
+
+ 
+
+ 
+
+ 
+
+        !totalElement ||
+
+ 
+
+ 
+
+ 
+
+        !highElement
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    try {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // Get current active alerts
+
+ 
+
+ 
+
+ 
+
+        const activeSnapshot =
+
+ 
+
+ 
+
+ 
+
+            await activeAlertsRef.once(
+
+ 
+
+ 
+
+ 
+
+                "value"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // Get complete alert history
+
+ 
+
+ 
+
+ 
+
+        const historySnapshot =
+
+ 
+
+ 
+
+ 
+
+            await historyRef.once(
+
+ 
+
+ 
+
+ 
+
+                "value"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const activeAlerts =
+
+ 
+
+ 
+
+ 
+
+            toArray(
+
+ 
+
+ 
+
+ 
+
+                activeSnapshot.val()
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const history =
+
+ 
+
+ 
+
+ 
+
+            toArray(
+
+ 
+
+ 
+
+ 
+
+                historySnapshot.val()
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // ACTIVE ALERTS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const activeCount =
+
+ 
+
+ 
+
+ 
+
+            activeAlerts.length;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // RESOLVED ALERTS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const resolvedCount =
+
+ 
+
+ 
+
+ 
+
+            history.filter(
+
+ 
+
+ 
+
+ 
+
+                function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return (
+
+ 
+
+ 
+
+ 
+
+                        String(
+
+ 
+
+ 
+
+ 
+
+                            alertData.status || ""
+
+ 
+
+ 
+
+ 
+
+                        ).toLowerCase() ===
+
+ 
+
+ 
+
+ 
+
+                        "resolved"
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            ).length;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // TOTAL ALERTS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const totalCount =
+
+ 
+
+ 
+
+ 
+
+            history.length;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // HIGH-SEVERITY ACTIVE ALERTS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const highSeverityCount =
+
+ 
+
+ 
+
+ 
+
+            activeAlerts.filter(
+
+ 
+
+ 
+
+ 
+
+                function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return (
+
+ 
+
+ 
+
+ 
+
+                        String(
+
+ 
+
+ 
+
+ 
+
+                            alertData.severity || ""
+
+ 
+
+ 
+
+ 
+
+                        ).toLowerCase() ===
+
+ 
+
+ 
+
+ 
+
+                        "high"
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            ).length;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // UPDATE THE CARDS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        activeElement.textContent =
+
+ 
+
+ 
+
+ 
+
+            activeCount;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        resolvedElement.textContent =
+
+ 
+
+ 
+
+ 
+
+            resolvedCount;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        totalElement.textContent =
+
+ 
+
+ 
+
+ 
+
+            totalCount;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        highElement.textContent =
+
+ 
+
+ 
+
+ 
+
+            highSeverityCount;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    } catch (error) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        console.error(
+
+ 
+
+ 
+
+ 
+
+            "Dashboard statistics error:",
+
+ 
+
+ 
+
+ 
+
+            error
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ALERT SEARCH & FILTER
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let currentActiveAlerts = [];
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let alertSearchText = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let selectedDisaster =
+
+ 
+
+ 
+
+ 
+
+    "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let selectedSeverity =
+
+ 
+
+ 
+
+ 
+
+    "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+// FILTER ACTIVE ALERTS
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function filterActiveAlerts() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const filteredAlerts =
+
+ 
+
+ 
+
+ 
+
+        currentActiveAlerts.filter(
+
+ 
+
+ 
+
+ 
+
+            function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const searchText =
+
+ 
+
+ 
+
+ 
+
+                    alertSearchText
+
+ 
+
+ 
+
+ 
+
+                        .toLowerCase()
+
+ 
+
+ 
+
+ 
+
+                        .trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const location =
+
+ 
+
+ 
+
+ 
+
+                    String(
+
+ 
+
+ 
+
+ 
+
+                        alertData.location || ""
+
+ 
+
+ 
+
+ 
+
+                    ).toLowerCase();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const message =
+
+ 
+
+ 
+
+ 
+
+                    String(
+
+ 
+
+ 
+
+ 
+
+                        alertData.message || ""
+
+ 
+
+ 
+
+ 
+
+                    ).toLowerCase();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const disaster =
+
+ 
+
+ 
+
+ 
+
+                    String(
+
+ 
+
+ 
+
+ 
+
+                        alertData.disaster || ""
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const severity =
+
+ 
+
+ 
+
+ 
+
+                    String(
+
+ 
+
+ 
+
+ 
+
+                        alertData.severity || ""
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                // Search
+
+ 
+
+ 
+
+ 
+
+                const matchesSearch =
+
+ 
+
+ 
+
+ 
+
+                    !searchText ||
+
+ 
+
+ 
+
+ 
+
+                    location.includes(
+
+ 
+
+ 
+
+ 
+
+                        searchText
+
+ 
+
+ 
+
+ 
+
+                    ) ||
+
+ 
+
+ 
+
+ 
+
+                    message.includes(
+
+ 
+
+ 
+
+ 
+
+                        searchText
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                // Disaster filter
+
+ 
+
+ 
+
+ 
+
+                const matchesDisaster =
+
+ 
+
+ 
+
+ 
+
+                    selectedDisaster === "all" ||
+
+ 
+
+ 
+
+ 
+
+                    disaster === selectedDisaster;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                // Severity filter
+
+ 
+
+ 
+
+ 
+
+                const matchesSeverity =
+
+ 
+
+ 
+
+ 
+
+                    selectedSeverity === "all" ||
+
+ 
+
+ 
+
+ 
+
+                    severity === selectedSeverity;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return (
+
+ 
+
+ 
+
+ 
+
+                    matchesSearch &&
+
+ 
+
+ 
+
+ 
+
+                    matchesDisaster &&
+
+ 
+
+ 
+
+ 
+
+                    matchesSeverity
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    displayAdminActiveAlerts(
+
+ 
+
+ 
+
+ 
+
+        filteredAlerts
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+// CONNECT FILTER CONTROLS
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function setupAlertFilters() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const searchInput =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "alertSearch"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const disasterFilter =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "filterDisaster"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const severityFilter =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "filterSeverity"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const clearButton =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "clearAlertFilters"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // If this page doesn't contain
+
+ 
+
+ 
+
+ 
+
+    // the filters, stop safely.
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !searchInput ||
+
+ 
+
+ 
+
+ 
+
+        !disasterFilter ||
+
+ 
+
+ 
+
+ 
+
+        !severityFilter ||
+
+ 
+
+ 
+
+ 
+
+        !clearButton
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Search
+
+ 
+
+ 
+
+ 
+
+    searchInput.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "input",
+
+ 
+
+ 
+
+ 
+
+        function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alertSearchText =
+
+ 
+
+ 
+
+ 
+
+                searchInput.value;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            filterActiveAlerts();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Disaster
+
+ 
+
+ 
+
+ 
+
+    disasterFilter.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "change",
+
+ 
+
+ 
+
+ 
+
+        function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            selectedDisaster =
+
+ 
+
+ 
+
+ 
+
+                disasterFilter.value;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            filterActiveAlerts();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Severity
+
+ 
+
+ 
+
+ 
+
+    severityFilter.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "change",
+
+ 
+
+ 
+
+ 
+
+        function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            selectedSeverity =
+
+ 
+
+ 
+
+ 
+
+                severityFilter.value;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            filterActiveAlerts();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Clear
+
+ 
+
+ 
+
+ 
+
+    clearButton.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "click",
+
+ 
+
+ 
+
+ 
+
+        function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            searchInput.value =
+
+ 
+
+ 
+
+ 
+
+                "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            disasterFilter.value =
+
+ 
+
+ 
+
+ 
+
+                "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            severityFilter.value =
+
+ 
+
+ 
+
+ 
+
+                "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alertSearchText =
+
+ 
+
+ 
+
+ 
+
+                "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            selectedDisaster =
+
+ 
+
+ 
+
+ 
+
+                "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            selectedSeverity =
+
+ 
+
+ 
+
+ 
+
+                "all";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            filterActiveAlerts();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// SAFETY INSTRUCTIONS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function getSafetyInstructions(disaster) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const instructions = {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Flood: [
+
+ 
+
+ 
+
+ 
+
+            "Move to higher ground immediately.",
+
+ 
+
+ 
+
+ 
+
+            "Avoid flooded roads and bridges.",
+
+ 
+
+ 
+
+ 
+
+            "Never walk or drive through moving water.",
+
+ 
+
+ 
+
+ 
+
+            "Keep your phone charged and follow official updates."
+
+ 
+
+ 
+
+ 
+
+        ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Cyclone: [
+
+ 
+
+ 
+
+ 
+
+            "Stay indoors and away from windows.",
+
+ 
+
+ 
+
+ 
+
+            "Secure loose objects around your home.",
+
+ 
+
+ 
+
+ 
+
+            "Follow official evacuation instructions.",
+
+ 
+
+ 
+
+ 
+
+            "Keep emergency supplies and drinking water ready."
+
+ 
+
+ 
+
+ 
+
+        ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Earthquake: [
+
+ 
+
+ 
+
+ 
+
+            "Drop, Cover and Hold On.",
+
+ 
+
+ 
+
+ 
+
+            "Stay away from windows and falling objects.",
+
+ 
+
+ 
+
+ 
+
+            "Do not use elevators during an earthquake.",
+
+ 
+
+ 
+
+ 
+
+            "After shaking stops, follow official instructions."
+
+ 
+
+ 
+
+ 
+
+        ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Fire: [
+
+ 
+
+ 
+
+ 
+
+            "Move away from the affected area.",
+
+ 
+
+ 
+
+ 
+
+            "Stay low if there is smoke.",
+
+ 
+
+ 
+
+ 
+
+            "Do not use elevators during a fire.",
+
+ 
+
+ 
+
+ 
+
+            "Call emergency services and follow evacuation instructions."
+
+ 
+
+ 
+
+ 
+
+        ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Landslide: [
+
+ 
+
+ 
+
+ 
+
+            "Move away from steep slopes and unstable areas.",
+
+ 
+
+ 
+
+ 
+
+            "Avoid roads or paths affected by falling rocks.",
+
+ 
+
+ 
+
+ 
+
+            "Move to a safe area if you notice cracks or unusual ground movement.",
+
+ 
+
+ 
+
+ 
+
+            "Follow official evacuation instructions."
+
+ 
+
+ 
+
+ 
+
+        ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        Tsunami: [
+
+ 
+
+ 
+
+ 
+
+            "Move quickly to higher ground and away from the coast.",
+
+ 
+
+ 
+
+ 
+
+            "Do not go to the shore to watch the waves.",
+
+ 
+
+ 
+
+ 
+
+            "Follow official tsunami warnings and evacuation orders.",
+
+ 
+
+ 
+
+ 
+
+            "Stay away from coastal areas until authorities give an all-clear."
+
+ 
+
+ 
+
+ 
+
+        ]
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    };
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    return instructions[disaster] || [
+
+ 
+
+ 
+
+ 
+
+        "Move to a safe location.",
+
+ 
+
+ 
+
+ 
+
+        "Follow official emergency instructions.",
+
+ 
+
+ 
+
+ 
+
+        "Keep your phone charged.",
+
+ 
+
+ 
+
+ 
+
+        "Avoid dangerous areas."
+
+ 
+
+ 
+
+ 
+
+    ];
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN - SEND ALERT
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const alertForm =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById("alertForm");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+if (alertForm) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    alertForm.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "submit",
+
+ 
+
+ 
+
+ 
+
+        async function (event) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            event.preventDefault();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const disaster =
+
+ 
+
+ 
+
+ 
+
+                document
+
+ 
+
+ 
+
+ 
+
+                    .getElementById("disaster")
+
+ 
+
+ 
+
+ 
+
+                    .value
+
+ 
+
+ 
+
+ 
+
+                    .trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const location =
+
+ 
+
+ 
+
+ 
+
+                document
+
+ 
+
+ 
+
+ 
+
+                    .getElementById("location")
+
+ 
+
+ 
+
+ 
+
+                    .value
+
+ 
+
+ 
+
+ 
+
+                    .trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const severity =
+
+ 
+
+ 
+
+ 
+
+                document
+
+ 
+
+ 
+
+ 
+
+                    .getElementById("severity")
+
+ 
+
+ 
+
+ 
+
+                    .value
+
+ 
+
+ 
+
+ 
+
+                    .trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const message =
+
+ 
+
+ 
+
+ 
+
+                document
+
+ 
+
+ 
+
+ 
+
+                    .getElementById("message")
+
+ 
+
+ 
+
+ 
+
+                    .value
+
+ 
+
+ 
+
+ 
+
+                    .trim();
+
+ 
+
+ 
+
+ 
+
+            const alertDuration =
+
+ 
+
+                Number(
+
+ 
+
+                    document.getElementById("alertDuration").value
+
+ 
+
+                );        
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                !disaster ||
+
+ 
+
+ 
+
+ 
+
+                !location ||
+
+ 
+
+ 
+
+ 
+
+                !severity ||
+
+ 
+
+ 
+
+ 
+
+                !message
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                alert(
+
+ 
+
+ 
+
+ 
+
+                    "Please fill in all fields."
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const now =
+
+ 
+
+ 
+
+ 
+
+                new Date();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const alertData = {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                id:
+
+ 
+
+ 
+
+ 
+
+                    Date.now().toString(),
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                disaster:
+
+ 
+
+ 
+
+ 
+
+                    disaster,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                location:
+
+ 
+
+ 
+
+ 
+
+                    location,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                alertDuration:
+
+ 
+
+ 
+
+ 
+
+                    alertDuration,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                expiresAt:
+
+ 
+
+ 
+
+ 
+
+                    alertDuration > 0
+
+ 
+
+                        ? Date.now() + (
+
+                            alertDuration *
+
+                            (
+
+                                document.getElementById("alertDuration")
+
+                                    ?.selectedOptions?.[0]
+
+                                    ?.dataset.unit === "minutes"
+
+                                    ? 60 * 1000
+
+                                    : 60 * 60 * 1000
+
+                            )
+
+                        )
+
+ 
+
+                        : null,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                latitude:
+
+ 
+
+ 
+
+ 
+
+                    locationInput?.dataset.lat || null,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                longitude:
+
+ 
+
+ 
+
+ 
+
+                    locationInput?.dataset.lng || null,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                locationDisplayName:
+
+ 
+
+ 
+
+ 
+
+                    locationInput?.dataset.displayName || location,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                severity:
+
+ 
+
+ 
+
+ 
+
+                    severity,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                message:
+
+ 
+
+ 
+
+ 
+
+                    message,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                time:
+
+ 
+
+ 
+
+ 
+
+                    now.toLocaleTimeString(),
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                date:
+
+ 
+
+ 
+
+ 
+
+                    now.toLocaleDateString(),
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                status:
+
+ 
+
  
 
  
+
+                    "Active"
 
  
 
  
 
-<head>
+ 
 
  
 
@@ -31,6 +5095,8 @@
  
 
  
+
+            };
 
  
 
@@ -38,7 +5104,7 @@
 
  
 
-    <meta charset="UTF-8">
+ 
 
  
 
@@ -54,7 +5120,7 @@
 
  
 
-    <meta
+            try {
 
  
 
@@ -62,7 +5128,7 @@
 
  
 
-        name="viewport"
+ 
 
  
 
@@ -70,7 +5136,7 @@
 
  
 
-        content="width=device-width, initial-scale=1.0"
+                // -------------------------------------------------
 
  
 
@@ -78,7 +5144,7 @@
 
  
 
-    >
+                // 1. SAVE ACTIVE ALERT
 
  
 
@@ -86,6 +5152,10 @@
 
  
 
+                // -------------------------------------------------
+
+ 
+
  
 
  
@@ -94,15 +5164,19 @@
 
  
 
-    <title>SafeGuard | Disaster Alert System</title>
+ 
 
  
 
+                const activeSnapshot =
+
  
 
  
 
  
+
+                    await activeAlertsRef.once(
 
  
 
@@ -110,7 +5184,7 @@
 
  
 
-    <link
+                        "value"
 
  
 
@@ -118,7 +5192,9 @@
 
  
 
-        rel="stylesheet"
+                    );
+
+ 
 
  
 
@@ -126,17 +5202,21 @@
 
  
 
-        href="style.css"
+ 
 
  
 
  
+
+                const activeAlerts =
 
  
 
-    >
+ 
 
  
+
+                    toArray(
 
  
 
@@ -144,13 +5224,15 @@
 
  
 
+                        activeSnapshot.val()
+
  
 
  
 
  
 
-    <!-- Leaflet CSS -->
+                    );
 
  
 
@@ -158,7 +5240,7 @@
 
  
 
-    <link
+ 
 
  
 
@@ -166,23 +5248,29 @@
 
  
 
-        rel="stylesheet"
+                activeAlerts.push(
+
+ 
 
  
 
  
 
+                    alertData
+
  
 
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+ 
 
  
 
+                );
+
  
 
  
 
-    >
+ 
 
  
 
@@ -192,17 +5280,23 @@
 
  
 
+                await activeAlertsRef.set(
+
  
 
  
 
  
+
+                    activeAlerts
 
-</head>
+ 
 
  
 
  
+
+                );
 
  
 
@@ -222,9 +5316,11 @@
 
  
 
-<body>
+ 
 
  
+
+                // -------------------------------------------------
 
  
 
@@ -232,11 +5328,15 @@
 
  
 
+                // 2. SAVE TO ALERT HISTORY
+
  
 
  
 
  
+
+                //    History failure will NOT cancel the alert.
 
  
 
@@ -244,9 +5344,11 @@
 
  
 
+                // -------------------------------------------------
+
  
 
-    <!-- =====================================================
+ 
 
  
 
@@ -254,15 +5356,17 @@
 
  
 
-         HEADER
+ 
 
  
+
+                try {
 
  
 
  
 
-    ====================================================== -->
+ 
 
  
 
@@ -271,6 +5375,8 @@
  
 
  
+
+                    const historySnapshot =
 
  
 
@@ -278,23 +5384,29 @@
 
  
 
-    <header class="topbar">
+                        await historyRef.once(
+
+ 
 
  
 
  
 
+                            "value"
+
  
 
  
 
  
+
+                        );
 
  
 
  
 
-        <div class="brand">
+ 
 
  
 
@@ -303,6 +5415,8 @@
  
 
  
+
+                    const history =
 
  
 
@@ -310,7 +5424,7 @@
 
  
 
-            <div class="logo">
+                        toArray(
 
  
 
@@ -318,7 +5432,7 @@
 
  
 
-                🛡️
+                            historySnapshot.val()
 
  
 
@@ -326,7 +5440,7 @@
 
  
 
-            </div>
+                        );
 
  
 
@@ -342,7 +5456,7 @@
 
  
 
-            <div>
+                    history.unshift(
 
  
 
@@ -350,7 +5464,15 @@
 
  
 
+                        alertData
+
+ 
+
+ 
+
  
+
+                    );
 
  
 
@@ -358,7 +5480,7 @@
 
  
 
-                <h1>
+ 
 
  
 
@@ -366,7 +5488,7 @@
 
  
 
-                    SafeGuard
+                    await historyRef.set(
 
  
 
@@ -374,13 +5496,15 @@
 
  
 
-                </h1>
+                        history
 
  
 
  
 
  
+
+                    );
 
  
 
@@ -390,15 +5514,17 @@
 
  
 
-                <p>
+ 
 
  
 
  
+
+                } catch (historyError) {
 
  
 
-                    Community Disaster Alert System
+ 
 
  
 
@@ -406,15 +5532,19 @@
 
  
 
-                </p>
+ 
 
  
 
+                    console.error(
+
  
 
  
 
  
+
+                        "Alert history save failed:",
 
  
 
@@ -422,7 +5552,7 @@
 
  
 
-            </div>
+                        historyError
 
  
 
@@ -430,6 +5560,8 @@
 
  
 
+                    );
+
  
 
  
@@ -438,12 +5570,14 @@
 
  
 
-        </div>
+ 
 
  
 
  
 
+                }
+
  
 
  
@@ -457,16 +5591,24 @@
  
 
  
+
+                // -------------------------------------------------
 
  
 
+                // 4. CLEAR FORM
+
  
+
+                // -------------------------------------------------
 
-        <div class="system-status">
+ 
 
  
 
  
+
+                alertForm.reset();
 
  
 
@@ -478,11 +5620,15 @@
 
  
 
-            <span class="status-dot"></span>
+                // -------------------------------------------------
 
  
 
+                // 5. SUCCESS MESSAGE
+
  
+
+                // -------------------------------------------------
 
  
 
@@ -490,11 +5636,15 @@
 
  
 
+                alert(
+
  
+
+                    "🚨 Disaster alert sent successfully!"
 
  
 
-            System Online
+                );
 
  
 
@@ -510,13 +5660,15 @@
 
  
 
-        </div>
+ 
 
  
 
  
 
  
+
+            } catch (error) {
 
  
 
@@ -526,11 +5678,13 @@
 
  
 
-    </header>
+ 
 
  
 
  
+
+                console.error(
 
  
 
@@ -538,11 +5692,15 @@
 
  
 
+                    "Send alert error:",
+
  
 
  
 
  
+
+                    error
 
  
 
@@ -550,6 +5708,8 @@
 
  
 
+                );
+
  
 
  
@@ -558,23 +5718,31 @@
 
  
 
-    <!-- =====================================================
+ 
 
  
 
  
 
+                alert(
+
  
 
-         MAIN
+                    "❌ ERROR\n\n" +
 
  
+
+                    "Code: " + (error.code || "Unknown") +
 
  
 
+                    "\n\nMessage: " + (error.message || error)
+
  
+
+                );
 
-    ====================================================== -->
+ 
 
  
 
@@ -587,10 +5755,12 @@
  
 
  
+
+            }
 
  
 
-    <main class="container">
+ 
 
  
 
@@ -601,6 +5771,8 @@
  
 
  
+
+        }
 
  
 
@@ -608,13 +5780,15 @@
 
  
 
+    );
+
  
 
  
 
  
 
-        <!-- =================================================
+ 
 
  
 
@@ -622,7 +5796,7 @@
 
  
 
-             WELCOME
+}
 
  
 
@@ -630,7 +5804,7 @@
 
  
 
-        ================================================== -->
+ 
 
  
 
@@ -645,12 +5819,16 @@
  
 
  
+
+// =====================================================
 
-        <section class="hero">
+ 
 
  
 
  
+
+// ADMIN - ACTIVE ALERTS
 
  
 
@@ -658,11 +5836,13 @@
 
  
 
+// =====================================================
+
  
 
  
 
-            <div>
+ 
 
  
 
@@ -672,13 +5852,15 @@
 
  
 
+const adminActiveAlerts =
+
  
 
  
 
  
 
-                <span class="badge">
+    document.getElementById(
 
  
 
@@ -686,7 +5868,7 @@
 
  
 
-                    COMMUNITY SAFETY
+        "adminActiveAlerts"
 
  
 
@@ -694,7 +5876,7 @@
 
  
 
-                </span>
+    );
 
  
 
@@ -718,7 +5900,7 @@
 
  
 
-                <h2>
+function displayAdminActiveAlerts(
 
  
 
@@ -726,15 +5908,17 @@
 
  
 
-                    Stay informed.<br>
+    alerts
 
  
 
  
 
  
+
+) {
 
-                    Stay prepared.
+ 
 
  
 
@@ -742,17 +5926,21 @@
 
  
 
-                </h2>
+ 
 
  
 
  
 
+    if (!adminActiveAlerts) {
+
  
 
  
 
  
+
+        return;
 
  
 
@@ -760,13 +5948,15 @@
 
  
 
+    }
+
  
 
  
 
  
 
-                <p>
+ 
 
  
 
@@ -774,7 +5964,7 @@
 
  
 
-                    Receive important disaster alerts,
+ 
 
  
 
@@ -782,7 +5972,7 @@
 
  
 
-                    emergency information and safety
+    if (alerts.length === 0) {
 
  
 
@@ -790,7 +5980,7 @@
 
  
 
-                    instructions in one place.
+ 
 
  
 
@@ -798,7 +5988,7 @@
 
  
 
-                </p>
+        adminActiveAlerts.innerHTML = `
 
  
 
@@ -806,17 +5996,23 @@
 
  
 
+            <p class="empty-history">
+
  
 
  
 
  
+
+                No active alerts.
 
  
 
-            </div>
+ 
 
  
+
+            </p>
 
  
 
@@ -824,6 +6020,8 @@
 
  
 
+        `;
+
  
 
  
@@ -838,15 +6036,17 @@
 
  
 
-            <div class="hero-icon">
+        return;
 
  
 
  
 
  
+
+    }
 
-                🚨
+ 
 
  
 
@@ -854,7 +6054,7 @@
 
  
 
-            </div>
+ 
 
  
 
@@ -868,9 +6068,11 @@
 
  
 
+    adminActiveAlerts.innerHTML = "";
+
  
 
-        </section>
+ 
 
  
 
@@ -890,11 +6092,15 @@
 
  
 
+    alerts.forEach(
+
  
 
  
 
  
+
+        function (alertData) {
 
  
 
@@ -902,7 +6108,7 @@
 
  
 
-        <!-- =================================================
+ 
 
  
 
@@ -910,7 +6116,7 @@
 
  
 
-             CURRENT ALERT
+            const item =
 
  
 
@@ -918,13 +6124,15 @@
 
  
 
-        ================================================== -->
+                document.createElement(
 
  
 
  
 
  
+
+                    "div"
 
  
 
@@ -932,9 +6140,11 @@
 
  
 
+                );
+
  
 
-        <section class="section">
+ 
 
  
 
@@ -950,9 +6160,11 @@
 
  
 
-            <div class="section-title">
+ 
 
  
+
+            item.className =
 
  
 
@@ -960,13 +6172,15 @@
 
  
 
+                "admin-alert-item";
+
  
 
  
 
  
 
-                <div>
+ 
 
  
 
@@ -982,7 +6196,7 @@
 
  
 
-                    <span class="small-title">
+            item.innerHTML = `
 
  
 
@@ -990,7 +6204,7 @@
 
  
 
-                        LIVE MONITORING
+ 
 
  
 
@@ -998,7 +6212,7 @@
 
  
 
-                    </span>
+                <div class="admin-alert-icon">
 
  
 
@@ -1014,7 +6228,7 @@
 
  
 
-                    <h2>
+                    ${getDisasterIcon(
 
  
 
@@ -1022,7 +6236,7 @@
 
  
 
-                        Current Alert
+                        alertData.disaster
 
  
 
@@ -1030,7 +6244,7 @@
 
  
 
-                    </h2>
+                    )}
 
  
 
@@ -1070,7 +6284,7 @@
 
  
 
-                <span
+                <div class="admin-alert-details">
 
  
 
@@ -1078,15 +6292,7 @@
 
  
 
-                    class="normal-status"
-
  
-
- 
-
- 
-
-                    id="systemAlertStatus"
 
  
 
@@ -1094,7 +6300,7 @@
 
  
 
-                >
+                    <h3>
 
  
 
@@ -1102,7 +6308,7 @@
 
  
 
-                    ● No Active Emergency
+                        ${escapeHTML(
 
  
 
@@ -1110,7 +6316,295 @@
 
  
 
-                </span>
+                            alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                        Alert
+
+ 
+
+ 
+
+ 
+
+                    </h3>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        📍
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.location
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        &nbsp; • &nbsp;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <span class="severity-badge severity-${String(alertData.severity).toLowerCase()}">
+
+ 
+
+ 
+
+ 
+
+                            ${escapeHTML(alertData.severity)}
+
+ 
+
+ 
+
+ 
+
+                        </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        &nbsp; • &nbsp;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        🕐
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.time
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.message
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1142,15 +6636,7 @@
 
  
 
-                    id="enableNotifications"
-
- 
-
- 
-
- 
-
-                    class="notification-button"
+                    class="admin-resolve-button"
 
  
 
@@ -1166,7 +6652,7 @@
 
  
 
-                    🔔 Enable Notifications
+                    ✅ Resolve
 
  
 
@@ -1183,6 +6669,3086 @@
  
 
  
+
+ 
+
+ 
+
+ 
+
+            `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const button =
+
+ 
+
+ 
+
+ 
+
+                item.querySelector(
+
+ 
+
+ 
+
+ 
+
+                    ".admin-resolve-button"
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            button.addEventListener(
+
+ 
+
+ 
+
+ 
+
+                "click",
+
+ 
+
+ 
+
+ 
+
+                function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    resolveAlert(
+
+ 
+
+ 
+
+ 
+
+                        alertData.id
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            adminActiveAlerts.appendChild(
+
+ 
+
+ 
+
+ 
+
+                item
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN - RESOLVE ALERT
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+async function resolveAlert(
+
+ 
+
+ 
+
+ 
+
+    alertId
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const confirmed =
+
+ 
+
+ 
+
+ 
+
+        confirm(
+
+ 
+
+ 
+
+ 
+
+            "Are you sure you want to resolve this alert?"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!confirmed) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    try {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const snapshot =
+
+ 
+
+ 
+
+ 
+
+            await activeAlertsRef.once(
+
+ 
+
+ 
+
+ 
+
+                "value"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const alerts =
+
+ 
+
+ 
+
+ 
+
+            toArray(
+
+ 
+
+ 
+
+ 
+
+                snapshot.val()
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const remaining =
+
+ 
+
+ 
+
+ 
+
+            alerts.filter(
+
+ 
+
+ 
+
+ 
+
+                function (item) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return String(item.id) !==
+
+ 
+
+ 
+
+ 
+
+                        String(alertId);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        await activeAlertsRef.set(
+
+ 
+
+ 
+
+ 
+
+            remaining
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const historySnapshot =
+
+ 
+
+ 
+
+ 
+
+            await historyRef.once(
+
+ 
+
+ 
+
+ 
+
+                "value"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const history =
+
+ 
+
+ 
+
+ 
+
+            toArray(
+
+ 
+
+ 
+
+ 
+
+                historySnapshot.val()
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const updatedHistory =
+
+ 
+
+ 
+
+ 
+
+            history.map(
+
+ 
+
+ 
+
+ 
+
+                function (item) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    if (
+
+ 
+
+ 
+
+ 
+
+                        String(item.id) ===
+
+ 
+
+ 
+
+ 
+
+                        String(alertId)
+
+ 
+
+ 
+
+ 
+
+                    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        return {
+
+ 
+
+ 
+
+ 
+
+                            ...item,
+
+ 
+
+ 
+
+ 
+
+                            status: "Resolved"
+
+ 
+
+ 
+
+ 
+
+                        };
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return item;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        await historyRef.set(
+
+ 
+
+ 
+
+ 
+
+            updatedHistory
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alert(
+
+ 
+
+ 
+
+ 
+
+            "✅ Alert resolved successfully."
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    } catch (error) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        console.error(
+
+ 
+
+ 
+
+ 
+
+            "Resolve error:",
+
+ 
+
+ 
+
+ 
+
+            error
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alert(
+
+ 
+
+ 
+
+ 
+
+            "❌ Could not resolve the alert."
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN - HISTORY
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const alertHistoryElement =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "alertHistory"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function displayAlertHistory(
+
+ 
+
+ 
+
+ 
+
+    history
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!alertHistoryElement) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (history.length === 0) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alertHistoryElement.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+            <p class="empty-history">
+
+ 
+
+ 
+
+ 
+
+                No previous alerts.
+
+ 
+
+ 
+
+ 
+
+            </p>
+
+ 
+
+ 
+
+ 
+
+        `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    alertHistoryElement.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    history.forEach(
+
+ 
+
+ 
+
+ 
+
+        function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const item =
+
+ 
+
+ 
+
+ 
+
+                document.createElement(
+
+ 
+
+ 
+
+ 
+
+                    "div"
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            item.className =
+
+ 
+
+ 
+
+ 
+
+                "history-item";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            item.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <strong>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${getDisasterIcon(
+
+ 
+
+ 
+
+ 
+
+                            alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        Alert
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </strong>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        📍
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.location
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        &nbsp; • &nbsp;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ⚠️
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.severity
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.message
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <span>
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.status
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.date
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        &nbsp;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.time
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alertHistoryElement.appendChild(
+
+ 
+
+ 
+
+ 
+
+                item
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN - CLEAR HISTORY
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const clearHistoryButton =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "clearHistory"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+if (clearHistoryButton) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    clearHistoryButton.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "click",
+
+ 
+
+ 
+
+ 
+
+        async function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                !confirm(
+
+ 
+
+ 
+
+ 
+
+                    "Are you sure you want to clear all alert history?"
+
+ 
+
+ 
+
+ 
+
+                )
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            try {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                await historyRef.set(
+
+ 
+
+ 
+
+ 
+
+                    []
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                alert(
+
+ 
+
+ 
+
+ 
+
+                    "🗑️ Alert history cleared."
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            } catch (error) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                console.error(
+
+ 
+
+ 
+
+ 
+
+                    error
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                alert(
+
+ 
+
+ 
+
+ 
+
+                    "❌ Could not clear history."
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// USER DASHBOARD ELEMENTS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const alertBox =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "alertBox"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const systemAlertStatus =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "systemAlertStatus"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const affectedLocation =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "affectedLocation"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const safetyInstructions =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "safetyInstructions"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const safetyList =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "safetyList"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// USER - DISPLAY ALERTS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function displayUserActiveAlerts(
+
+ 
+
+ 
+
+ 
+
+    alerts
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!alertBox) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+    // NO ACTIVE ALERTS
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (alerts.length === 0) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alertBox.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            <div class="alert-icon">
+
+ 
+
+ 
+
+ 
+
+                ✓
 
  
 
@@ -1214,7 +9780,7 @@
 
  
 
-            <div
+            <div class="alert-content">
 
  
 
@@ -1222,15 +9788,7 @@
 
  
 
-                class="alert-card"
-
  
-
- 
-
- 
-
-                id="alertBox"
 
  
 
@@ -1238,7 +9796,767 @@
 
  
 
-            >
+                <h3>
+
+ 
+
+ 
+
+ 
+
+                    No Active Emergency
+
+ 
+
+ 
+
+ 
+
+                </h3>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <p>
+
+ 
+
+ 
+
+ 
+
+                    There are currently no active
+
+ 
+
+ 
+
+ 
+
+                    disaster warnings reported
+
+ 
+
+ 
+
+ 
+
+                    in your area.
+
+ 
+
+ 
+
+ 
+
+                </p>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div class="alert-info">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <span>
+
+ 
+
+ 
+
+ 
+
+                        📍 Your Area
+
+ 
+
+ 
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <span>
+
+ 
+
+ 
+
+ 
+
+                        🕐 Updated Just Now
+
+ 
+
+ 
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (systemAlertStatus) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            systemAlertStatus.textContent =
+
+ 
+
+ 
+
+ 
+
+                "● No Active Emergency";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // FIX LOCATION CARD
+
+ 
+
+ 
+
+ 
+
+        setAffectedLocation(
+
+ 
+
+ 
+
+ 
+
+            "No affected location"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (safetyInstructions) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            safetyInstructions.style.display =
+
+ 
+
+ 
+
+ 
+
+                "none";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        updateDisasterMap(
+
+ 
+
+ 
+
+ 
+
+            []
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+    // ACTIVE ALERT
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (systemAlertStatus) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        systemAlertStatus.textContent =
+
+ 
+
+ 
+
+ 
+
+            "🔴 " +
+
+ 
+
+ 
+
+ 
+
+            alerts.length +
+
+ 
+
+ 
+
+ 
+
+            " Active Alert" +
+
+ 
+
+ 
+
+ 
+
+            (
+
+ 
+
+ 
+
+ 
+
+                alerts.length === 1
+
+ 
+
+ 
+
+ 
+
+                    ? ""
+
+ 
+
+ 
+
+ 
+
+                    : "s"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    alertBox.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    alerts.forEach(
+
+ 
+
+ 
+
+ 
+
+        function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const item =
+
+ 
+
+ 
+
+ 
+
+                document.createElement(
+
+ 
+
+ 
+
+ 
+
+                    "div"
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            item.className =
+
+ 
+
+ 
+
+ 
+
+                "multiple-alert";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            item.innerHTML = `
 
  
 
@@ -1262,7 +10580,39 @@
 
  
 
-                    ✓
+ 
+
+ 
+
+ 
+
+ 
+
+                    ${getDisasterIcon(
+
+ 
+
+ 
+
+ 
+
+                        alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                    )}
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1318,7 +10668,47 @@
 
  
 
-                        No Active Emergency
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                        Alert
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1342,6 +10732,14 @@
 
  
 
+ 
+
+ 
+
+ 
+
+ 
+
                     <p>
 
  
@@ -1350,15 +10748,7 @@
 
  
 
-                        There are currently no active
-
  
-
- 
-
- 
-
-                        disaster warnings reported
 
  
 
@@ -1366,7 +10756,31 @@
 
  
 
-                        in your area.
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            alertData.message
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1422,7 +10836,47 @@
 
  
 
-                            📍 Your Area
+ 
+
+ 
+
+ 
+
+ 
+
+                            📍
+
+ 
+
+ 
+
+ 
+
+                            ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                                alertData.location
+
+ 
+
+ 
+
+ 
+
+                            )}
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1431,6 +10885,14 @@
  
 
                         </span>
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1454,7 +10916,47 @@
 
  
 
-                            🕐 Updated Just Now
+ 
+
+ 
+
+ 
+
+ 
+
+                            ⚠️
+
+ 
+
+ 
+
+ 
+
+                            ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                                alertData.severity
+
+ 
+
+ 
+
+ 
+
+                            )}
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -1471,3062 +10973,6 @@
  
 
  
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <!-- Safety instructions -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div
-
- 
-
- 
-
- 
-
-                id="safetyInstructions"
-
- 
-
- 
-
- 
-
-                class="safety-box"
-
- 
-
- 
-
- 
-
-                style="display: none;"
-
- 
-
- 
-
- 
-
-            >
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <h3>
-
- 
-
- 
-
- 
-
-                    🛡️ What You Should Do
-
- 
-
- 
-
- 
-
-                </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <ul id="safetyList"></ul>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <!-- =================================================
-
- 
-
- 
-
- 
-
-             AFFECTED LOCATION
-
- 
-
- 
-
- 
-
-        ================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <section class="section">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="section-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="small-title">
-
- 
-
- 
-
- 
-
-                        LOCATION AWARENESS
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h2>
-
- 
-
- 
-
- 
-
-                        Affected Area
-
- 
-
- 
-
- 
-
-                    </h2>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <!-- Current location -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="location-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="location-icon">
-
- 
-
- 
-
- 
-
-                    📍
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="location-details">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span>
-
- 
-
- 
-
- 
-
-                        CURRENT ALERT LOCATION
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3 id="affectedLocation">
-
- 
-
- 
-
- 
-
-                        No affected location
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        The affected location will appear
-
- 
-
- 
-
- 
-
-                        here when an active disaster alert
-
- 
-
- 
-
- 
-
-                        is issued.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <!-- Map -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="map-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="map-header">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            🗺️ Disaster Location Map
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <p>
-
- 
-
- 
-
- 
-
-                            Visual representation of
-
- 
-
- 
-
- 
-
-                            the affected area
-
- 
-
- 
-
- 
-
-                        </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="map-status">
-
- 
-
- 
-
- 
-
-                        LIVE VIEW
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div id="map">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="map-placeholder">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        📍 No active disaster location
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <!-- =================================================
-
- 
-
- 
-
- 
-
-             HOW IT WORKS
-
- 
-
- 
-
- 
-
-        ================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <section class="section">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="section-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="small-title">
-
- 
-
- 
-
- 
-
-                        SYSTEM PROCESS
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h2>
-
- 
-
- 
-
- 
-
-                        How SafeGuard Works
-
- 
-
- 
-
- 
-
-                    </h2>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="process-flow">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-step">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-number">
-
- 
-
- 
-
- 
-
-                        01
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-icon">
-
- 
-
- 
-
- 
-
-                        📡
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Detect
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        Disaster information is received
-
- 
-
- 
-
- 
-
-                        from authorised sources or
-
- 
-
- 
-
- 
-
-                        monitoring systems.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-arrow">
-
- 
-
- 
-
- 
-
-                    →
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-step">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-number">
-
- 
-
- 
-
- 
-
-                        02
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-icon">
-
- 
-
- 
-
- 
-
-                        🔍
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Analyse
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        The system identifies the disaster,
-
- 
-
- 
-
- 
-
-                        location and severity.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-arrow">
-
- 
-
- 
-
- 
-
-                    →
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-step">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-number">
-
- 
-
- 
-
- 
-
-                        03
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-icon">
-
- 
-
- 
-
- 
-
-                        🚨
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Alert
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        An emergency warning is displayed
-
- 
-
- 
-
- 
-
-                        to the affected community.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-arrow">
-
- 
-
- 
-
- 
-
-                    →
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="process-step">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-number">
-
- 
-
- 
-
- 
-
-                        04
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="process-icon">
-
- 
-
- 
-
- 
-
-                        🛡️
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Respond
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        People follow safety instructions
-
- 
-
- 
-
- 
-
-                        and take appropriate action.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <!-- =================================================
-
- 
-
- 
-
- 
-
-             EMERGENCY PREPAREDNESS
-
- 
-
- 
-
- 
-
-        ================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <section class="section">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="section-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="small-title">
-
- 
-
- 
-
- 
-
-                        BE PREPARED
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h2>
-
- 
-
- 
-
- 
-
-                        Emergency Preparedness
-
- 
-
- 
-
- 
-
-                    </h2>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="cards">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="info-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="card-icon">
-
- 
-
- 
-
- 
-
-                        🎒
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Emergency Kit
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        Keep water, food, medicines,
-
- 
-
- 
-
- 
-
-                        flashlight and important
-
- 
-
- 
-
- 
-
-                        documents ready.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="info-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="card-icon">
-
- 
-
- 
-
- 
-
-                        📍
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Know Your Location
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        Know nearby shelters, hospitals
-
- 
-
- 
-
- 
-
-                        and safe evacuation routes.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="info-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="card-icon">
-
- 
-
- 
-
- 
-
-                        📱
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h3>
-
- 
-
- 
-
- 
-
-                        Stay Connected
-
- 
-
- 
-
- 
-
-                    </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        Keep your phone charged and
-
- 
-
- 
-
- 
-
-                        monitor official emergency alerts.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <!-- =================================================
-
- 
-
- 
-
- 
-
-             DISASTER INFORMATION
-
- 
-
- 
-
- 
-
-        ================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <section class="section">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="section-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="small-title">
-
- 
-
- 
-
- 
-
-                        KNOW THE RISK
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h2>
-
- 
-
- 
-
- 
-
-                        Disaster Information
-
- 
-
- 
-
- 
-
-                    </h2>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <p class="disaster-intro">
-
- 
-
- 
-
- 
-
-                Quick information about common disasters,
-
- 
-
- 
-
- 
-
-                their warning signs and the immediate
-
- 
-
- 
-
- 
-
-                action you should take.
-
- 
-
- 
-
- 
-
-            </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="disaster-grid">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
 
  
 
@@ -4550,7 +10996,47 @@
 
  
 
-                            🌊
+ 
+
+ 
+
+ 
+
+ 
+
+                            🕐
+
+ 
+
+ 
+
+ 
+
+                            ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                                alertData.time
+
+ 
+
+ 
+
+ 
+
+                            )}
+
+ 
+
+ 
+
+ 
+
+ 
 
  
 
@@ -4574,2030 +11060,6 @@
 
  
 
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Flood
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Heavy rainfall and rising water levels.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Move to higher ground and avoid
-
- 
-
- 
-
- 
-
-                        floodwater.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Water sensors, weather monitoring
-
- 
-
- 
-
- 
-
-                        and mobile alerts.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <span>
-
- 
-
- 
-
- 
-
-                            🌪️
-
- 
-
- 
-
- 
-
-                        </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Cyclone
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Severe weather alerts, strong winds
-
- 
-
- 
-
- 
-
-                        and heavy rain.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Stay indoors and follow evacuation
-
- 
-
- 
-
- 
-
-                        instructions.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Satellites, weather forecasting
-
- 
-
- 
-
- 
-
-                        and early warnings.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <span>
-
- 
-
- 
-
- 
-
-                            🌍
-
- 
-
- 
-
- 
-
-                        </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Earthquake
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Earthquakes generally have little
-
- 
-
- 
-
- 
-
-                        or no reliable advance warning.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Drop, Cover and Hold On.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Seismic sensors and emergency
-
- 
-
- 
-
- 
-
-                        communication systems.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <span>
-
- 
-
- 
-
- 
-
-                            🔥
-
- 
-
- 
-
- 
-
-                        </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Fire
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Smoke, unusual heat, flames or
-
- 
-
- 
-
- 
-
-                        fire alarms.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Evacuate safely and contact
-
- 
-
- 
-
- 
-
-                        emergency services.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Smoke sensors, heat detectors
-
- 
-
- 
-
- 
-
-                        and automatic alarms.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <span>
-
- 
-
- 
-
- 
-
-                            ⛰️
-
- 
-
- 
-
- 
-
-                        </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Landslide
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Ground cracks, falling rocks or
-
- 
-
- 
-
- 
-
-                        unusual slope movement.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Move away from unstable slopes
-
- 
-
- 
-
- 
-
-                        and affected areas.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Rainfall monitoring, sensors
-
- 
-
- 
-
- 
-
-                        and GIS risk mapping.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="disaster-card">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div class="disaster-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <span>
-
- 
-
- 
-
- 
-
-                            🌊
-
- 
-
- 
-
- 
-
-                        </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Tsunami
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Warning:</strong>
-
- 
-
- 
-
- 
-
-                        Strong coastal earthquake,
-
- 
-
- 
-
- 
-
-                        unusual sea-level changes
-
- 
-
- 
-
- 
-
-                        or official alerts.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>Action:</strong>
-
- 
-
- 
-
- 
-
-                        Move immediately to higher ground
-
- 
-
- 
-
- 
-
-                        and away from the coast.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <p>
-
- 
-
- 
-
- 
-
-                        <strong>IT Role:</strong>
-
- 
-
- 
-
- 
-
-                        Seismic monitoring, ocean sensors
-
- 
-
- 
-
- 
-
-                        and coastal warning systems.
-
- 
-
- 
-
- 
-
-                    </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        </section>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <!-- =================================================
-
- 
-
- 
-
- 
-
-             EMERGENCY SUPPORT
-
- 
-
- 
-
- 
-
-        ================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-        <section class="section">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="section-title">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span class="small-title">
-
- 
-
- 
-
- 
-
-                        HELP & SUPPORT
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <h2>
-
- 
-
- 
-
- 
-
-                        Emergency & Community Support
-
- 
-
- 
-
- 
-
-                    </h2>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            </div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-            <div class="support-group">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                <div class="support-heading">
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <span>
-
- 
-
- 
-
- 
-
-                        🚨
-
- 
-
- 
-
- 
-
-                    </span>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                    <div>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <h3>
-
- 
-
- 
-
- 
-
-                            Official Emergency Contacts
-
- 
-
- 
-
- 
-
-                        </h3>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-                        <p>
-
- 
-
- 
-
- 
-
-                            Use these services during
-
- 
-
- 
-
- 
-
-                            an emergency.
-
- 
-
- 
-
- 
-
-                        </p>
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
                     </div>
 
  
@@ -6630,6 +11092,1470 @@
 
  
 
+            `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alertBox.appendChild(
+
+ 
+
+ 
+
+ 
+
+                item
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+    // FIX LOCATION CARD
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const locationText =
+
+ 
+
+ 
+
+ 
+
+        alerts
+
+ 
+
+ 
+
+ 
+
+            .map(
+
+ 
+
+ 
+
+ 
+
+                function (item) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return (
+
+ 
+
+ 
+
+ 
+
+                        item.location || ""
+
+ 
+
+ 
+
+ 
+
+                    ).trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            )
+
+ 
+
+ 
+
+ 
+
+            .filter(
+
+ 
+
+ 
+
+ 
+
+                function (location) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return location !== "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            )
+
+ 
+
+ 
+
+ 
+
+            .join(" • ");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    setAffectedLocation(
+
+ 
+
+ 
+
+ 
+
+        locationText ||
+
+ 
+
+ 
+
+ 
+
+        "No affected location"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+    // SAFETY INSTRUCTIONS
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        safetyInstructions &&
+
+ 
+
+ 
+
+ 
+
+        safetyList
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        safetyList.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const used =
+
+ 
+
+ 
+
+ 
+
+            new Set();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alerts.forEach(
+
+ 
+
+ 
+
+ 
+
+            function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                if (
+
+ 
+
+ 
+
+ 
+
+                    used.has(
+
+ 
+
+ 
+
+ 
+
+                        alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                    )
+
+ 
+
+ 
+
+ 
+
+                ) {
+
+ 
+
+ 
+
+ 
+
+                    return;
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                used.add(
+
+ 
+
+ 
+
+ 
+
+                    alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const heading =
+
+ 
+
+ 
+
+ 
+
+                    document.createElement(
+
+ 
+
+ 
+
+ 
+
+                        "li"
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                heading.innerHTML =
+
+ 
+
+ 
+
+ 
+
+                    `<strong>${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                        alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                    )}</strong>`;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                safetyList.appendChild(
+
+ 
+
+ 
+
+ 
+
+                    heading
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                getSafetyInstructions(
+
+ 
+
+ 
+
+ 
+
+                    alertData.disaster
+
+ 
+
+ 
+
+ 
+
+                ).forEach(
+
+ 
+
+ 
+
+ 
+
+                    function (instruction) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        const li =
+
+ 
+
+ 
+
+ 
+
+                            document.createElement(
+
+ 
+
+ 
+
+ 
+
+                                "li"
+
+ 
+
+ 
+
+ 
+
+                            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        li.textContent =
+
+ 
+
+ 
+
+ 
+
+                            instruction;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        safetyList.appendChild(
+
+ 
+
+ 
+
+ 
+
+                            li
+
+ 
+
+ 
+
+ 
+
+                        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    }
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        safetyInstructions.style.display =
+
+ 
+
+ 
+
+ 
+
+            "block";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+    // MAP
+
+ 
+
+ 
+
+ 
+
+    // =================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    updateDisasterMap(
+
+ 
+
+ 
+
+ 
+
+        alerts
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// LOCATION CARD - ROBUST UPDATE
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function setAffectedLocation(
+
+ 
+
+ 
+
+ 
+
+    location
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Try the expected ID
+
+ 
+
+ 
+
+ 
+
+    const element =
+
+ 
+
+ 
+
+ 
+
+        document.getElementById(
+
+ 
+
+ 
+
+ 
+
+            "affectedLocation"
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (element) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        element.textContent =
+
+ 
+
+ 
+
+ 
+
+            location;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Compatibility with alternate IDs
+
+ 
+
+ 
+
+ 
+
+    const alternatives = [
+
+ 
+
+ 
+
+ 
+
+        "currentLocation",
+
+ 
+
+ 
+
+ 
+
+        "currentAlertLocation",
+
+ 
+
+ 
+
+ 
+
+        "affectedArea",
+
+ 
+
+ 
+
+ 
+
+        "locationText"
+
+ 
+
+ 
+
+ 
+
+    ];
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    for (
+
+ 
+
+ 
+
+ 
+
+        const id of alternatives
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const alternate =
+
+ 
+
+ 
+
+ 
+
+            document.getElementById(id);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (alternate) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alternate.textContent =
+
+ 
+
+ 
+
+ 
+
+                location;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            return;
+
+ 
+
+ 
+
+ 
+
  
 
  
@@ -6638,7 +12564,7 @@
 
  
 
-                <div class="contact-card">
+        }
 
  
 
@@ -6654,15 +12580,13 @@
 
  
 
-                    <span class="contact-icon">
+    }
 
  
 
  
 
  
-
-                        🚨
 
  
 
@@ -6670,7 +12594,7 @@
 
  
 
-                    </span>
+ 
 
  
 
@@ -6679,6 +12603,8 @@
  
 
  
+
+    console.warn(
 
  
 
@@ -6686,7 +12612,7 @@
 
  
 
-                    <div class="contact-info">
+        "Affected location element was not found."
 
  
 
@@ -6694,7 +12620,7 @@
 
  
 
- 
+    );
 
  
 
@@ -6702,7 +12628,7 @@
 
  
 
-                        <h4>
+ 
 
  
 
@@ -6710,7 +12636,7 @@
 
  
 
-                            112
+}
 
  
 
@@ -6718,7 +12644,7 @@
 
  
 
-                        </h4>
+ 
 
  
 
@@ -6734,7 +12660,7 @@
 
  
 
-                        <p>
+// =====================================================
 
  
 
@@ -6742,7 +12668,7 @@
 
  
 
-                            Integrated Emergency Number
+// FIREBASE ACTIVE ALERT LISTENER
 
  
 
@@ -6750,7 +12676,7 @@
 
  
 
-                        </p>
+// =====================================================
 
  
 
@@ -6766,7 +12692,7 @@
 
  
 
-                        <div class="contact-actions">
+activeAlertsRef.on(
 
  
 
@@ -6774,7 +12700,7 @@
 
  
 
- 
+    "value",
 
  
 
@@ -6782,7 +12708,7 @@
 
  
 
-                            <a
+    function (snapshot) {
 
  
 
@@ -6790,7 +12716,7 @@
 
  
 
-                                href="tel:112"
+ 
 
  
 
@@ -6798,7 +12724,7 @@
 
  
 
-                                class="call-button"
+        const alerts =
 
  
 
@@ -6806,7 +12732,7 @@
 
  
 
-                            >
+            toArray(
 
  
 
@@ -6814,7 +12740,7 @@
 
  
 
-                                📞 Call
+                snapshot.val()
 
  
 
@@ -6822,7 +12748,7 @@
 
  
 
-                            </a>
+            );
 
  
 
@@ -6834,11 +12760,11 @@
 
  
 
- 
+        removeExpiredAlerts(alerts);
 
  
 
-                            <button
+ 
 
  
 
@@ -6846,7 +12772,7 @@
 
  
 
-                                type="button"
+        console.log(
 
  
 
@@ -6854,7 +12780,7 @@
 
  
 
-                                class="copy-button"
+            "Firebase active alerts:",
 
  
 
@@ -6862,7 +12788,7 @@
 
  
 
-                                onclick="copyEmergencyNumber('112')"
+            alerts
 
  
 
@@ -6870,15 +12796,13 @@
 
  
 
-                            >
+        );
 
  
 
  
 
  
-
-                                📋 Copy
 
  
 
@@ -6886,7 +12810,7 @@
 
  
 
-                            </button>
+ 
 
  
 
@@ -6895,6 +12819,8 @@
  
 
  
+
+        currentActiveAlerts =
 
  
 
@@ -6902,7 +12828,7 @@
 
  
 
-                        </div>
+            alerts;
 
  
 
@@ -6918,7 +12844,7 @@
 
  
 
-                    </div>
+        filterActiveAlerts();
 
  
 
@@ -6934,8 +12860,6 @@
 
  
 
-                </div>
-
  
 
  
@@ -6944,7 +12868,7 @@
 
  
 
- 
+        displayUserActiveAlerts(
 
  
 
@@ -6952,13 +12876,15 @@
 
  
 
+            alerts
+
  
 
  
 
  
 
-                <div class="contact-card">
+        );
 
  
 
@@ -6974,7 +12900,7 @@
 
  
 
-                    <span class="contact-icon">
+        updateDashboardStatistics();
 
  
 
@@ -6982,7 +12908,7 @@
 
  
 
-                        🚑
+ 
 
  
 
@@ -6990,7 +12916,7 @@
 
  
 
-                    </span>
+    },
 
  
 
@@ -6998,15 +12924,13 @@
 
  
 
- 
+    function (error) {
 
  
 
  
 
  
-
-                    <div class="contact-info">
 
  
 
@@ -7016,13 +12940,15 @@
 
  
 
+        console.error(
+
  
 
  
 
  
 
-                        <h4>
+            "Firebase active alerts error:",
 
  
 
@@ -7030,7 +12956,7 @@
 
  
 
-                            108
+            error
 
  
 
@@ -7038,7 +12964,7 @@
 
  
 
-                        </h4>
+        );
 
  
 
@@ -7054,7 +12980,7 @@
 
  
 
-                        <p>
+    }
 
  
 
@@ -7062,31 +12988,35 @@
 
  
 
-                            Emergency Ambulance
+);
 
  
 
  
 
  
-
-                        </p>
 
  
 
  
 
+// =====================================================
+
  
+
+// AUTOMATIC ALERT EXPIRY
 
  
 
+// =====================================================
+
  
 
  
 
  
 
-                        <div class="contact-actions">
+async function removeExpiredAlerts(alerts) {
 
  
 
@@ -7094,15 +13024,15 @@
 
  
 
- 
+    if (!Array.isArray(alerts) || alerts.length === 0) {
 
  
 
- 
+        return;
 
  
 
-                            <a
+    }
 
  
 
@@ -7110,7 +13040,7 @@
 
  
 
-                                href="tel:108"
+    const now = Date.now();
 
  
 
@@ -7118,7 +13048,7 @@
 
  
 
-                                class="call-button"
+    const expiredAlerts = alerts.filter(function (alertData) {
 
  
 
@@ -7126,7 +13056,7 @@
 
  
 
-                            >
+        const expiresAt = Number(alertData.expiresAt);
 
  
 
@@ -7134,17 +13064,23 @@
 
  
 
-                                📞 Call
+        return (
 
  
+
+            Number.isFinite(expiresAt) &&
 
  
 
+            expiresAt > 0 &&
+
  
 
-                            </a>
+            expiresAt <= now
 
  
+
+        );
 
  
 
@@ -7152,21 +13088,23 @@
 
  
 
+    });
+
  
 
  
 
  
 
-                            <button
+    if (expiredAlerts.length === 0) {
 
  
 
- 
+        return;
 
  
 
-                                type="button"
+    }
 
  
 
@@ -7174,7 +13112,7 @@
 
  
 
-                                class="copy-button"
+    try {
 
  
 
@@ -7182,15 +13120,15 @@
 
  
 
-                                onclick="copyEmergencyNumber('108')"
+        // ---------------------------------------------
 
  
 
- 
+        // REMOVE EXPIRED ALERTS FROM ACTIVE ALERTS
 
  
 
-                            >
+        // ---------------------------------------------
 
  
 
@@ -7198,7 +13136,7 @@
 
  
 
-                                📋 Copy
+        const remainingAlerts = alerts.filter(function (alertData) {
 
  
 
@@ -7206,7 +13144,7 @@
 
  
 
-                            </button>
+            const expiresAt = Number(alertData.expiresAt);
 
  
 
@@ -7214,23 +13152,31 @@
 
  
 
- 
+            return !(
 
  
 
+                Number.isFinite(expiresAt) &&
+
  
+
+                expiresAt > 0 &&
 
  
 
-                        </div>
+                expiresAt <= now
 
  
 
+            );
+
  
 
  
 
  
+
+        });
 
  
 
@@ -7238,11 +13184,15 @@
 
  
 
-                    </div>
+        await activeAlertsRef.set(
 
  
 
+            remainingAlerts
+
  
+
+        );
 
  
 
@@ -7254,13 +13204,15 @@
 
  
 
-                </div>
+        // ---------------------------------------------
 
  
 
- 
+        // MARK EXPIRED ALERTS IN HISTORY
 
  
+
+        // ---------------------------------------------
 
  
 
@@ -7268,7 +13220,11 @@
 
  
 
+        const historySnapshot =
+
  
+
+            await historyRef.once("value");
 
  
 
@@ -7276,33 +13232,47 @@
 
  
 
+        const history =
+
  
 
-                <div class="contact-card">
+            toArray(
 
  
+
+                historySnapshot.val()
 
  
 
+            );
+
  
 
  
 
  
+
+        const expiredIds =
 
  
 
+            new Set(
+
  
 
-                    <span class="contact-icon">
+                expiredAlerts.map(function (alertData) {
 
  
+
+                    return String(alertData.id);
 
  
 
+                })
+
  
 
-                        🏛️
+            );
 
  
 
@@ -7310,9 +13280,11 @@
 
  
 
-                    </span>
+        const updatedHistory =
 
  
+
+            history.map(function (alertData) {
 
  
 
@@ -7320,15 +13292,23 @@
 
  
 
+                if (
+
  
+
+                    expiredIds.has(
 
  
 
+                        String(alertData.id)
+
  
 
-                    <div class="contact-info">
+                    )
 
  
+
+                ) {
 
  
 
@@ -7336,13 +13316,19 @@
 
  
 
+                    return {
+
  
+
+                        ...alertData,
 
  
 
+                        status: "Expired"
+
  
 
-                        <h4>
+                    };
 
  
 
@@ -7350,7 +13336,7 @@
 
  
 
-                            1070
+                }
 
  
 
@@ -7358,7 +13344,7 @@
 
  
 
-                        </h4>
+                return alertData;
 
  
 
@@ -7366,7 +13352,7 @@
 
  
 
- 
+            });
 
  
 
@@ -7374,15 +13360,15 @@
 
  
 
-                        <p>
+        await historyRef.set(
 
  
 
- 
+            updatedHistory
 
  
 
-                            Maharashtra Disaster Response
+        );
 
  
 
@@ -7390,15 +13376,19 @@
 
  
 
-                        </p>
+        console.log(
 
  
 
- 
+            "⏱️ Expired alerts removed:",
 
  
 
+            expiredAlerts.length
+
  
+
+        );
 
  
 
@@ -7406,7 +13396,7 @@
 
  
 
-                        <div class="contact-actions">
+    } catch (error) {
 
  
 
@@ -7414,15 +13404,19 @@
 
  
 
- 
+        console.error(
 
  
+
+            "Automatic alert expiry error:",
 
  
 
+            error
+
  
 
-                            <a
+        );
 
  
 
@@ -7430,7 +13424,7 @@
 
  
 
-                                href="tel:1070"
+    }
 
  
 
@@ -7438,23 +13432,23 @@
 
  
 
-                                class="call-button"
+}
 
  
 
  
 
  
-
-                            >
 
  
 
  
 
+// =====================================================
+
  
 
-                                📞 Call
+ 
 
  
 
@@ -7462,15 +13456,23 @@
 
  
 
-                            </a>
+// =====================================================
 
  
 
+// PERIODIC EXPIRY CHECK
+
  
+
+// Checks Firebase every 10 seconds so alerts expire even
 
  
 
+// when no other Firebase data changes.
+
  
+
+// =====================================================
 
  
 
@@ -7478,7 +13480,7 @@
 
  
 
-                            <button
+setInterval(async function () {
 
  
 
@@ -7486,15 +13488,19 @@
 
  
 
-                                type="button"
+    try {
+
+ 
 
  
 
  
 
+        const snapshot =
+
  
 
-                                class="copy-button"
+            await activeAlertsRef.once("value");
 
  
 
@@ -7502,15 +13508,19 @@
 
  
 
-                                onclick="copyEmergencyNumber('1070')"
+        const alerts =
 
  
+
+            toArray(
 
  
 
+                snapshot.val()
+
  
 
-                            >
+            );
 
  
 
@@ -7518,15 +13528,15 @@
 
  
 
-                                📋 Copy
+        await removeExpiredAlerts(
 
  
 
- 
+            alerts
 
  
 
-                            </button>
+        );
 
  
 
@@ -7534,7 +13544,7 @@
 
  
 
- 
+    } catch (error) {
 
  
 
@@ -7542,15 +13552,19 @@
 
  
 
-                        </div>
+        console.error(
 
  
 
- 
+            "Periodic expiry check error:",
 
  
 
+            error
+
  
+
+        );
 
  
 
@@ -7558,7 +13572,7 @@
 
  
 
-                    </div>
+    }
 
  
 
@@ -7566,6 +13580,8 @@
 
  
 
+}, 10 * 1000);
+
  
 
  
@@ -7574,103 +13590,281 @@
 
  
 
-                </div>
+// =====================================================
 
- 
+// COPY EMERGENCY NUMBER
 
+// =====================================================
+
  
+
+function copyEmergencyNumber(number) {
 
  
 
+    const value = String(number ?? "").trim();
+
  
+
+    if (!value) {
+
+        return;
+
+    }
 
  
+
+    if (
+
+        navigator.clipboard &&
+
+        typeof navigator.clipboard.writeText === "function"
+
+    ) {
 
  
 
+        navigator.clipboard.writeText(value)
+
+            .then(function () {
+
+                showCopyConfirmation();
+
+            })
+
+            .catch(function () {
+
+                fallbackCopyEmergencyNumber(value);
+
+            });
+
  
+
+        return;
 
+    }
+
  
+
+    fallbackCopyEmergencyNumber(value);
 
+}
+
  
+
+function fallbackCopyEmergencyNumber(value) {
 
  
 
+    const textArea =
+
+        document.createElement("textarea");
+
  
 
-                <div class="contact-card">
+    textArea.value = value;
 
+    textArea.setAttribute("readonly", "");
+
  
+
+    textArea.style.position = "fixed";
 
+    textArea.style.left = "-9999px";
+
+    textArea.style.top = "0";
+
+    textArea.style.opacity = "0";
+
  
+
+    document.body.appendChild(textArea);
 
  
+
+    textArea.focus();
+
+    textArea.select();
+
+    textArea.setSelectionRange(
+
+        0,
 
+        textArea.value.length
+
+    );
+
  
 
+    try {
+
  
+
+        const copied =
 
+            document.execCommand("copy");
+
  
+
+        if (copied) {
+
+            showCopyConfirmation();
+
+        } else {
 
+            throw new Error("Copy command returned false.");
+
+        }
+
  
 
-                    <span class="contact-icon">
+    } catch (error) {
 
  
+
+        console.error(
+
+            "Copy emergency number failed:",
 
+            error
+
+        );
+
  
+
+        alert(
+
+            "Could not copy the number. Please copy it manually."
 
+        );
+
  
 
-                        📡
+    } finally {
 
  
+
+        document.body.removeChild(textArea);
 
  
 
+    }
+
  
 
-                    </span>
+}
 
  
+
+function showCopyConfirmation() {
 
  
+
+    let message =
+
+        document.getElementById(
+
+            "copyConfirmation"
+
+        );
 
  
 
+    if (!message) {
+
  
+
+        message =
 
+            document.createElement("div");
+
  
+
+        message.id =
 
+            "copyConfirmation";
+
  
+
+        message.textContent =
 
+            "📋 Number copied!";
+
  
+
+        message.style.position = "fixed";
+
+        message.style.left = "50%";
+
+        message.style.bottom = "24px";
+
+        message.style.transform = "translateX(-50%)";
+
+        message.style.zIndex = "99999";
+
+        message.style.padding = "10px 16px";
+
+        message.style.borderRadius = "8px";
+
+        message.style.background = "#111827";
+
+        message.style.color = "#ffffff";
 
-                    <div class="contact-info">
+        message.style.fontSize = "14px";
 
+        message.style.fontWeight = "600";
+
+        message.style.boxShadow =
+
+            "0 4px 16px rgba(0,0,0,0.25)";
+
+        message.style.pointerEvents = "none";
+
  
 
+        document.body.appendChild(message);
+
  
+
+    }
 
  
 
+    message.style.display = "block";
+
  
+
+    clearTimeout(
 
+        window.safeGuardCopyTimer
+
+    );
+
  
+
+    window.safeGuardCopyTimer =
+
+        setTimeout(function () {
 
  
 
+            message.style.display =
+
+                "none";
+
  
 
-                        <h4>
+        }, 1800);
 
  
 
+}
+
  
 
  
 
-                            +91 9321587143
+// FIREBASE HISTORY LISTENER
 
  
 
@@ -7678,7 +13872,7 @@
 
  
 
-                        </h4>
+// =====================================================
 
  
 
@@ -7694,7 +13888,7 @@
 
  
 
-                        <p>
+historyRef.on(
 
  
 
@@ -7702,7 +13896,7 @@
 
  
 
-                            Maharashtra State Emergency
+    "value",
 
  
 
@@ -7710,15 +13904,13 @@
 
  
 
-                            Operations Centre
+    function (snapshot) {
 
  
 
  
 
  
-
-                        </p>
 
  
 
@@ -7728,13 +13920,15 @@
 
  
 
+        const history =
+
  
 
  
 
  
 
-                        <div class="contact-actions">
+            toArray(
 
  
 
@@ -7742,7 +13936,7 @@
 
  
 
- 
+                snapshot.val()
 
  
 
@@ -7750,7 +13944,7 @@
 
  
 
-                            <a
+            );
 
  
 
@@ -7758,7 +13952,7 @@
 
  
 
-                                href="tel:+919321587143"
+ 
 
  
 
@@ -7766,7 +13960,7 @@
 
  
 
-                                class="call-button"
+ 
 
  
 
@@ -7774,7 +13968,7 @@
 
  
 
-                            >
+        displayAlertHistory(
 
  
 
@@ -7782,7 +13976,7 @@
 
  
 
-                                📞 Call
+            history
 
  
 
@@ -7790,7 +13984,7 @@
 
  
 
-                            </a>
+        );
 
  
 
@@ -7806,7 +14000,7 @@
 
  
 
-                            <button
+        updateDashboardStatistics();
 
  
 
@@ -7814,7 +14008,7 @@
 
  
 
-                                type="button"
+ 
 
  
 
@@ -7822,7 +14016,7 @@
 
  
 
-                                class="copy-button"
+    }
 
  
 
@@ -7830,7 +14024,7 @@
 
  
 
-                                onclick="copyEmergencyNumber('+91 9321587143')"
+);
 
  
 
@@ -7838,7 +14032,7 @@
 
  
 
-                            >
+ 
 
  
 
@@ -7846,7 +14040,7 @@
 
  
 
-                                📋 Copy
+ 
 
  
 
@@ -7854,7 +14048,7 @@
 
  
 
-                            </button>
+// =====================================================
 
  
 
@@ -7862,7 +14056,7 @@
 
  
 
- 
+// MAP INITIALIZATION
 
  
 
@@ -7870,7 +14064,7 @@
 
  
 
-                        </div>
+// =====================================================
 
  
 
@@ -7886,7 +14080,7 @@
 
  
 
-                    </div>
+function initializeDisasterMap() {
 
  
 
@@ -7902,7 +14096,7 @@
 
  
 
-                </div>
+    const mapElement =
 
  
 
@@ -7910,7 +14104,7 @@
 
  
 
- 
+        document.getElementById(
 
  
 
@@ -7918,7 +14112,7 @@
 
  
 
-            </div>
+            "map"
 
  
 
@@ -7926,7 +14120,7 @@
 
  
 
- 
+        );
 
  
 
@@ -7950,7 +14144,7 @@
 
  
 
-            <div class="support-group ngo-support">
+    if (!mapElement) {
 
  
 
@@ -7958,7 +14152,7 @@
 
  
 
- 
+        return;
 
  
 
@@ -7966,7 +14160,7 @@
 
  
 
-                <div class="support-heading">
+    }
 
  
 
@@ -7982,7 +14176,7 @@
 
  
 
-                    <span>
+ 
 
  
 
@@ -7990,7 +14184,7 @@
 
  
 
-                        🤝
+    if (
 
  
 
@@ -7998,7 +14192,7 @@
 
  
 
-                    </span>
+        typeof L ===
 
  
 
@@ -8006,7 +14200,7 @@
 
  
 
- 
+        "undefined"
 
  
 
@@ -8014,7 +14208,7 @@
 
  
 
-                    <div>
+    ) {
 
  
 
@@ -8030,7 +14224,7 @@
 
  
 
-                        <h3>
+        console.error(
 
  
 
@@ -8038,7 +14232,7 @@
 
  
 
-                            Community Disaster Support
+            "Leaflet is not loaded."
 
  
 
@@ -8046,7 +14240,7 @@
 
  
 
-                        </h3>
+        );
 
  
 
@@ -8062,7 +14256,7 @@
 
  
 
-                        <p>
+        return;
 
  
 
@@ -8070,7 +14264,7 @@
 
  
 
-                            Local organization working in
+ 
 
  
 
@@ -8078,7 +14272,7 @@
 
  
 
-                            disaster preparedness and
+    }
 
  
 
@@ -8086,15 +14280,13 @@
 
  
 
-                            community resilience.
-
  
 
  
 
  
 
-                        </p>
+ 
 
  
 
@@ -8104,13 +14296,15 @@
 
  
 
+    if (disasterMap) {
+
  
 
  
 
  
 
-                    </div>
+        return;
 
  
 
@@ -8118,7 +14312,7 @@
 
  
 
- 
+    }
 
  
 
@@ -8126,8 +14320,6 @@
 
  
 
-                </div>
-
  
 
  
@@ -8143,6 +14335,8 @@
  
 
  
+
+    mapElement.innerHTML = "";
 
  
 
@@ -8150,7 +14344,7 @@
 
  
 
-                <div class="ngo-card">
+ 
 
  
 
@@ -8166,7 +14360,7 @@
 
  
 
-                    <div>
+    disasterMap =
 
  
 
@@ -8174,7 +14368,7 @@
 
  
 
- 
+        L.map(
 
  
 
@@ -8182,7 +14376,7 @@
 
  
 
-                        <span class="ngo-label">
+            "map"
 
  
 
@@ -8190,7 +14384,7 @@
 
  
 
-                            LOCAL ORGANIZATION
+        );
 
  
 
@@ -8198,7 +14392,7 @@
 
  
 
-                        </span>
+ 
 
  
 
@@ -8214,7 +14408,7 @@
 
  
 
-                        <h3>
+    disasterMap.setView(
 
  
 
@@ -8222,7 +14416,7 @@
 
  
 
-                            Emergency Response &
+        [
 
  
 
@@ -8230,7 +14424,7 @@
 
  
 
-                            Awareness Foundation (ERAF)
+            19.0330,
 
  
 
@@ -8238,7 +14432,7 @@
 
  
 
-                        </h3>
+            73.0297
 
  
 
@@ -8246,7 +14440,7 @@
 
  
 
- 
+        ],
 
  
 
@@ -8254,7 +14448,7 @@
 
  
 
-                        <p>
+        11
 
  
 
@@ -8262,7 +14456,7 @@
 
  
 
-                            A Navi Mumbai-based organization
+    );
 
  
 
@@ -8270,7 +14464,7 @@
 
  
 
-                            involved in disaster management,
+ 
 
  
 
@@ -8278,7 +14472,7 @@
 
  
 
-                            preparedness, awareness and
+ 
 
  
 
@@ -8286,7 +14480,7 @@
 
  
 
-                            community resilience.
+    L.tileLayer(
 
  
 
@@ -8294,7 +14488,7 @@
 
  
 
-                        </p>
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
 
  
 
@@ -8302,7 +14496,7 @@
 
  
 
- 
+        {
 
  
 
@@ -8318,7 +14512,7 @@
 
  
 
-                        <div class="ngo-contact">
+            maxZoom: 19,
 
  
 
@@ -8334,7 +14528,7 @@
 
  
 
-                            <span>
+            attribution:
 
  
 
@@ -8342,15 +14536,13 @@
 
  
 
-                                📍 Seawoods, Navi Mumbai
+                "&copy; OpenStreetMap contributors"
 
  
 
  
 
  
-
-                            </span>
 
  
 
@@ -8360,13 +14552,15 @@
 
  
 
+        }
+
  
 
  
 
  
 
-                            <span>
+    ).addTo(
 
  
 
@@ -8374,7 +14568,7 @@
 
  
 
-                                📞 +91 9326404800
+        disasterMap
 
  
 
@@ -8382,7 +14576,7 @@
 
  
 
-                            </span>
+    );
 
  
 
@@ -8398,7 +14592,7 @@
 
  
 
-                            <span>
+ 
 
  
 
@@ -8406,7 +14600,7 @@
 
  
 
-                                📧 erafindia@gmail.com
+    setTimeout(
 
  
 
@@ -8414,7 +14608,7 @@
 
  
 
-                            </span>
+        function () {
 
  
 
@@ -8430,7 +14624,9 @@
 
  
 
-                        </div>
+            disasterMap.invalidateSize();
+
+ 
 
  
 
@@ -8444,17 +14640,23 @@
 
  
 
+        },
+
  
 
-                    </div>
+ 
 
  
 
+        500
+
  
 
  
 
  
+
+    );
 
  
 
@@ -8470,7 +14672,7 @@
 
  
 
-                    <a
+}
 
  
 
@@ -8478,7 +14680,7 @@
 
  
 
-                        href="https://eraf.in/"
+ 
 
  
 
@@ -8486,7 +14688,7 @@
 
  
 
-                        target="_blank"
+ 
 
  
 
@@ -8494,7 +14696,7 @@
 
  
 
-                        rel="noopener noreferrer"
+// =====================================================
 
  
 
@@ -8502,7 +14704,7 @@
 
  
 
-                        class="ngo-button"
+// MAP - REMOVE MARKERS
 
  
 
@@ -8510,7 +14712,7 @@
 
  
 
-                    >
+// =====================================================
 
  
 
@@ -8518,7 +14720,7 @@
 
  
 
-                        🌐 Visit Website
+ 
 
  
 
@@ -8526,7 +14728,7 @@
 
  
 
-                    </a>
+function removeAllMapMarkers() {
 
  
 
@@ -8542,7 +14744,7 @@
 
  
 
-                </div>
+    if (!disasterMap) {
 
  
 
@@ -8550,7 +14752,7 @@
 
  
 
- 
+        return;
 
  
 
@@ -8558,7 +14760,7 @@
 
  
 
-            </div>
+    }
 
  
 
@@ -8582,7 +14784,7 @@
 
  
 
-            <p class="support-note">
+    disasterMarkers.forEach(
 
  
 
@@ -8590,7 +14792,7 @@
 
  
 
- 
+        function (marker) {
 
  
 
@@ -8598,7 +14800,7 @@
 
  
 
-                <strong>
+ 
 
  
 
@@ -8606,7 +14808,7 @@
 
  
 
-                    Note:
+            disasterMap.removeLayer(
 
  
 
@@ -8614,7 +14816,7 @@
 
  
 
-                </strong>
+                marker
 
  
 
@@ -8622,7 +14824,7 @@
 
  
 
- 
+            );
 
  
 
@@ -8630,7 +14832,7 @@
 
  
 
-                Emergency contact information is provided
+ 
 
  
 
@@ -8638,7 +14840,7 @@
 
  
 
-                for awareness and should be verified with
+        }
 
  
 
@@ -8646,7 +14848,7 @@
 
  
 
-                official authorities when necessary.
+    );
 
  
 
@@ -8662,8 +14864,6 @@
 
  
 
-            </p>
-
  
 
  
@@ -8672,14 +14872,12 @@
 
  
 
- 
+    disasterMarkers = [];
 
  
 
  
 
-        </section>
-
  
 
  
@@ -8690,11 +14888,11 @@
 
  
 
- 
+}
 
  
 
-    </main>
+ 
 
  
 
@@ -8713,6 +14911,8 @@
  
 
  
+
+// =====================================================
 
  
 
@@ -8720,13 +14920,15 @@
 
  
 
+// MAP - GEOCODING
+
  
 
  
 
  
 
-    <!-- =====================================================
+// =====================================================
 
  
 
@@ -8734,7 +14936,7 @@
 
  
 
-         FOOTER
+ 
 
  
 
@@ -8742,7 +14944,7 @@
 
  
 
-    ====================================================== -->
+async function geocodeLocation(
 
  
 
@@ -8750,7 +14952,7 @@
 
  
 
- 
+    location
 
  
 
@@ -8758,7 +14960,7 @@
 
  
 
-    <footer>
+) {
 
  
 
@@ -8774,7 +14976,7 @@
 
  
 
-        <div>
+    try {
 
  
 
@@ -8790,7 +14992,7 @@
 
  
 
-            <strong>
+        const cleanLocation =
 
  
 
@@ -8798,7 +15000,7 @@
 
  
 
-                SafeGuard
+            String(
 
  
 
@@ -8806,7 +15008,7 @@
 
  
 
-            </strong>
+                location || ""
 
  
 
@@ -8814,7 +15016,7 @@
 
  
 
- 
+            ).trim();
 
  
 
@@ -8822,7 +15024,7 @@
 
  
 
-            <p>
+ 
 
  
 
@@ -8830,7 +15032,7 @@
 
  
 
-                Technology for a safer community.
+ 
 
  
 
@@ -8838,7 +15040,7 @@
 
  
 
-            </p>
+        if (!cleanLocation) {
 
  
 
@@ -8846,7 +15048,7 @@
 
  
 
- 
+            return null;
 
  
 
@@ -8854,7 +15056,7 @@
 
  
 
-        </div>
+        }
 
  
 
@@ -8878,7 +15080,7 @@
 
  
 
-        <p>
+        const query =
 
  
 
@@ -8886,7 +15088,7 @@
 
  
 
-            Community Engagement Project
+            encodeURIComponent(
 
  
 
@@ -8894,7 +15096,7 @@
 
  
 
-        </p>
+                cleanLocation +
 
  
 
@@ -8902,7 +15104,7 @@
 
  
 
- 
+                ", Maharashtra, India"
 
  
 
@@ -8910,7 +15112,7 @@
 
  
 
-    </footer>
+            );
 
  
 
@@ -8934,7 +15136,7 @@
 
  
 
- 
+        const url =
 
  
 
@@ -8942,7 +15144,7 @@
 
  
 
-    <!-- =====================================================
+            "https://nominatim.openstreetmap.org/search" +
 
  
 
@@ -8950,7 +15152,7 @@
 
  
 
-         LEAFLET
+            "?format=json" +
 
  
 
@@ -8958,7 +15160,7 @@
 
  
 
-    ====================================================== -->
+            "&q=" +
 
  
 
@@ -8966,7 +15168,7 @@
 
  
 
- 
+            query +
 
  
 
@@ -8974,7 +15176,7 @@
 
  
 
-    <script
+            "&limit=1";
 
  
 
@@ -8982,7 +15184,7 @@
 
  
 
-        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ 
 
  
 
@@ -8990,7 +15192,7 @@
 
  
 
-    ></script>
+ 
 
  
 
@@ -8998,11 +15200,15 @@
 
  
 
+        const response =
+
  
 
  
 
  
+
+            await fetch(
 
  
 
@@ -9010,11 +15216,15 @@
 
  
 
+                url,
+
  
 
  
 
  
+
+                {
 
  
 
@@ -9022,7 +15232,7 @@
 
  
 
-    <!-- =====================================================
+                    headers: {
 
  
 
@@ -9030,7 +15240,7 @@
 
  
 
-         FIREBASE
+                        "Accept":
 
  
 
@@ -9038,7 +15248,7 @@
 
  
 
-    ====================================================== -->
+                            "application/json"
 
  
 
@@ -9046,7 +15256,7 @@
 
  
 
- 
+                    }
 
  
 
@@ -9054,7 +15264,7 @@
 
  
 
-    <script
+                }
 
  
 
@@ -9062,7 +15272,7 @@
 
  
 
-        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"
+            );
 
  
 
@@ -9070,7 +15280,7 @@
 
  
 
-    ></script>
+ 
 
  
 
@@ -9086,7 +15296,7 @@
 
  
 
-    <script
+        if (!response.ok) {
 
  
 
@@ -9094,7 +15304,7 @@
 
  
 
-        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"
+            return null;
 
  
 
@@ -9102,7 +15312,7 @@
 
  
 
-    ></script>
+        }
 
  
 
@@ -9126,7 +15336,7 @@
 
  
 
-    <script>
+        const results =
 
  
 
@@ -9134,7 +15344,7 @@
 
  
 
- 
+            await response.json();
 
  
 
@@ -9142,7 +15352,7 @@
 
  
 
-        const firebaseConfig = {
+ 
 
  
 
@@ -9158,7 +15368,7 @@
 
  
 
-            apiKey:
+        if (
 
  
 
@@ -9166,7 +15376,7 @@
 
  
 
-                "AIzaSyCNwTeXvNskFtH5sKT4YSjk40PuWyKGoE",
+            !results ||
 
  
 
@@ -9174,7 +15384,7 @@
 
  
 
- 
+            results.length === 0
 
  
 
@@ -9182,15 +15392,13 @@
 
  
 
-            authDomain:
+        ) {
 
  
 
  
 
  
-
-                "safeguard-disaster-system.firebaseapp.com",
 
  
 
@@ -9200,13 +15408,15 @@
 
  
 
+            return null;
+
  
 
  
 
  
 
-            databaseURL:
+ 
 
  
 
@@ -9214,7 +15424,7 @@
 
  
 
-                "https://safeguard-disaster-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+        }
 
  
 
@@ -9230,7 +15440,7 @@
 
  
 
-            projectId:
+ 
 
  
 
@@ -9238,7 +15448,7 @@
 
  
 
-                "safeguard-disaster-system",
+        return {
 
  
 
@@ -9254,7 +15464,7 @@
 
  
 
-            storageBucket:
+            lat:
 
  
 
@@ -9262,13 +15472,15 @@
 
  
 
-                "safeguard-disaster-system.firebasestorage.app",
+                parseFloat(
 
  
 
  
 
  
+
+                    results[0].lat
 
  
 
@@ -9276,9 +15488,11 @@
 
  
 
+                ),
+
  
 
-            messagingSenderId:
+ 
 
  
 
@@ -9286,15 +15500,19 @@
 
  
 
-                "690746267419",
+ 
 
  
 
+            lng:
+
  
 
  
 
  
+
+                parseFloat(
 
  
 
@@ -9302,7 +15520,7 @@
 
  
 
-            appId:
+                    results[0].lon
 
  
 
@@ -9310,7 +15528,7 @@
 
  
 
-                "1:690746267419:web:3b6c34e2dcd1481ceee5be"
+                )
 
  
 
@@ -9350,7 +15568,7 @@
 
  
 
-        firebase.initializeApp(
+    } catch (error) {
 
  
 
@@ -9358,7 +15576,31 @@
 
  
 
-            firebaseConfig
+ 
+
+ 
+
+ 
+
+ 
+
+        console.error(
+
+ 
+
+ 
+
+ 
+
+            "Geocoding error:",
+
+ 
+
+ 
+
+ 
+
+            error
 
  
 
@@ -9382,7 +15624,47 @@
 
  
 
-    </script>
+ 
+
+ 
+
+ 
+
+ 
+
+        return null;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
 
  
 
@@ -9406,7 +15688,7 @@
 
  
 
- 
+// =====================================================
 
  
 
@@ -9414,7 +15696,7 @@
 
  
 
-    <!-- =====================================================
+// MAP - UPDATE
 
  
 
@@ -9422,31 +15704,7 @@
 
  
 
-         MAIN JAVASCRIPT
-
- 
-
- 
-
- 
-
-    ====================================================== -->
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
- 
-
-    <script src="script.js?v=4.0.0"></script>
+// =====================================================
 
  
 
@@ -9462,6 +15720,24 @@
 
  
 
+async function updateDisasterMap(
+
+ 
+
+ 
+
+ 
+
+    alerts
+
+ 
+
+ 
+
+ 
+
+) {
+
  
 
  
@@ -9470,7 +15746,29 @@
 
  
 
-</body>
+ 
+
+ 
+
+ 
+
+    if (!disasterMap) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
 
  
 
@@ -9486,4 +15784,8092 @@
 
  
 
-</html>
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // CREATE UNIQUE UPDATE VERSION
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const thisUpdate =
+
+ 
+
+ 
+
+ 
+
+        ++mapUpdateVersion;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // REMOVE OLD MARKERS IMMEDIATELY
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    removeAllMapMarkers();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // NO ACTIVE ALERT
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !alerts ||
+
+ 
+
+ 
+
+ 
+
+        alerts.length === 0
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        disasterMap.setView(
+
+ 
+
+ 
+
+ 
+
+            [
+
+ 
+
+ 
+
+ 
+
+                19.0330,
+
+ 
+
+ 
+
+ 
+
+                73.0297
+
+ 
+
+ 
+
+ 
+
+            ],
+
+ 
+
+ 
+
+ 
+
+            11
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        setTimeout(
+
+ 
+
+ 
+
+ 
+
+            function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                disasterMap.invalidateSize();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            },
+
+ 
+
+ 
+
+ 
+
+            100
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const locations = [];
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // GET EXACT COORDINATES FOR EACH ALERT
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    for (
+
+ 
+
+ 
+
+ 
+
+        const alertData of alerts
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // If Firebase changed while
+
+ 
+
+ 
+
+ 
+
+        // processing was happening,
+
+ 
+
+ 
+
+ 
+
+        // stop this old update.
+
+ 
+
+ 
+
+ 
+
+        if (
+
+ 
+
+ 
+
+ 
+
+            thisUpdate !==
+
+ 
+
+ 
+
+ 
+
+            mapUpdateVersion
+
+ 
+
+ 
+
+ 
+
+        ) {
+
+ 
+
+ 
+
+ 
+
+            return;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const location =
+
+ 
+
+ 
+
+ 
+
+            String(
+
+ 
+
+ 
+
+ 
+
+                alertData.location || ""
+
+ 
+
+ 
+
+ 
+
+            ).trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (!location) {
+
+ 
+
+ 
+
+ 
+
+            continue;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        let latitude =
+
+ 
+
+ 
+
+ 
+
+            Number(
+
+ 
+
+ 
+
+ 
+
+                alertData.latitude
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        let longitude =
+
+ 
+
+ 
+
+ 
+
+            Number(
+
+ 
+
+ 
+
+ 
+
+                alertData.longitude
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // USE SAVED EXACT COORDINATES FIRST
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (
+
+ 
+
+ 
+
+ 
+
+            Number.isFinite(latitude) &&
+
+ 
+
+ 
+
+ 
+
+            Number.isFinite(longitude) &&
+
+ 
+
+ 
+
+ 
+
+            latitude >= -90 &&
+
+ 
+
+ 
+
+ 
+
+            latitude <= 90 &&
+
+ 
+
+ 
+
+ 
+
+            longitude >= -180 &&
+
+ 
+
+ 
+
+ 
+
+            longitude <= 180
+
+ 
+
+ 
+
+ 
+
+        ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            locations.push({
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                alert:
+
+ 
+
+ 
+
+ 
+
+                    alertData,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                lat:
+
+ 
+
+ 
+
+ 
+
+                    latitude,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                lng:
+
+ 
+
+ 
+
+ 
+
+                    longitude
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            });
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            continue;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // FALLBACK FOR OLD ALERTS
+
+ 
+
+ 
+
+ 
+
+        // -------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+        // Old alerts created before latitude/longitude
+
+ 
+
+ 
+
+ 
+
+        // were added will still work.
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const coordinates =
+
+ 
+
+ 
+
+ 
+
+            await geocodeLocation(
+
+ 
+
+ 
+
+ 
+
+                location
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        // Check again after the
+
+ 
+
+ 
+
+ 
+
+        // asynchronous request.
+
+ 
+
+ 
+
+ 
+
+        if (
+
+ 
+
+ 
+
+ 
+
+            thisUpdate !==
+
+ 
+
+ 
+
+ 
+
+            mapUpdateVersion
+
+ 
+
+ 
+
+ 
+
+        ) {
+
+ 
+
+ 
+
+ 
+
+            return;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (!coordinates) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            console.warn(
+
+ 
+
+ 
+
+ 
+
+                "Could not locate:",
+
+ 
+
+ 
+
+ 
+
+                location
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            continue;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        locations.push({
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alert:
+
+ 
+
+ 
+
+ 
+
+                alertData,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            lat:
+
+ 
+
+ 
+
+ 
+
+                coordinates.lat,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            lng:
+
+ 
+
+ 
+
+ 
+
+                coordinates.lng
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        });
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // CHECK AGAIN
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        thisUpdate !==
+
+ 
+
+ 
+
+ 
+
+        mapUpdateVersion
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // NO VALID LOCATIONS
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (locations.length === 0) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        disasterMap.setView(
+
+ 
+
+ 
+
+ 
+
+            [
+
+ 
+
+ 
+
+ 
+
+                19.0330,
+
+ 
+
+ 
+
+ 
+
+                73.0297
+
+ 
+
+ 
+
+ 
+
+            ],
+
+ 
+
+ 
+
+ 
+
+            11
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // CREATE CURRENT MARKERS
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    locations.forEach(
+
+ 
+
+ 
+
+ 
+
+        function (item) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            // Ignore if newer update arrived
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                thisUpdate !==
+
+ 
+
+ 
+
+ 
+
+                mapUpdateVersion
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const marker =
+
+ 
+
+ 
+
+ 
+
+                L.marker(
+
+ 
+
+ 
+
+ 
+
+                    [
+
+ 
+
+ 
+
+ 
+
+                        Number(item.lat),
+
+ 
+
+ 
+
+ 
+
+                        Number(item.lng)
+
+ 
+
+ 
+
+ 
+
+                    ]
+
+ 
+
+ 
+
+ 
+
+                ).addTo(
+
+ 
+
+ 
+
+ 
+
+                    disasterMap
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            marker.bindPopup(`
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div class="map-alert-popup">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <strong class="map-popup-title">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${getDisasterIcon(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.disaster
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                        Alert
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </strong>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <hr>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <div class="map-popup-row">
+
+ 
+
+ 
+
+ 
+
+                        📍
+
+ 
+
+ 
+
+ 
+
+                        <strong>Location:</strong>
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.location
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <div class="map-popup-row">
+
+ 
+
+ 
+
+ 
+
+                        ⚠️
+
+ 
+
+ 
+
+ 
+
+                        <strong>Severity:</strong>
+
+ 
+
+ 
+
+ 
+
+                        <span class="severity-badge severity-${String(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.severity
+
+ 
+
+ 
+
+ 
+
+                        ).toLowerCase()}">
+
+ 
+
+ 
+
+ 
+
+                            ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                                item.alert.severity
+
+ 
+
+ 
+
+ 
+
+                            )}
+
+ 
+
+ 
+
+ 
+
+                        </span>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <div class="map-popup-row">
+
+ 
+
+ 
+
+ 
+
+                        🕐
+
+ 
+
+ 
+
+ 
+
+                        <strong>Time:</strong>
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.time
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <div class="map-popup-message">
+
+ 
+
+ 
+
+ 
+
+                        <strong>Message:</strong><br>
+
+ 
+
+ 
+
+ 
+
+                        ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            item.alert.message
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            `);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            disasterMarkers.push(
+
+ 
+
+ 
+
+ 
+
+                marker
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+    // FIT MAP TO CURRENT MARKERS
+
+ 
+
+ 
+
+ 
+
+    // -----------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        disasterMarkers.length === 1
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        disasterMap.setView(
+
+ 
+
+ 
+
+ 
+
+            disasterMarkers[0].getLatLng(),
+
+ 
+
+ 
+
+ 
+
+            14,
+
+ 
+
+ 
+
+ 
+
+            {
+
+ 
+
+ 
+
+ 
+
+                animate: true
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    } else if (
+
+ 
+
+ 
+
+ 
+
+        disasterMarkers.length > 1
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const bounds =
+
+ 
+
+ 
+
+ 
+
+            L.latLngBounds([]);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        disasterMarkers.forEach(
+
+ 
+
+ 
+
+ 
+
+            function (marker) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                bounds.extend(
+
+ 
+
+ 
+
+ 
+
+                    marker.getLatLng()
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        disasterMap.fitBounds(
+
+ 
+
+ 
+
+ 
+
+            bounds,
+
+ 
+
+ 
+
+ 
+
+            {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                padding:
+
+ 
+
+ 
+
+ 
+
+                    [
+
+ 
+
+ 
+
+ 
+
+                        40,
+
+ 
+
+ 
+
+ 
+
+                        40
+
+ 
+
+ 
+
+ 
+
+                    ],
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                maxZoom:
+
+ 
+
+ 
+
+ 
+
+                    14,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                animate:
+
+ 
+
+ 
+
+ 
+
+                    true
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    setTimeout(
+
+ 
+
+ 
+
+ 
+
+        function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                disasterMap &&
+
+ 
+
+ 
+
+ 
+
+                thisUpdate ===
+
+ 
+
+ 
+
+ 
+
+                    mapUpdateVersion
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                disasterMap.invalidateSize();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        },
+
+ 
+
+ 
+
+ 
+
+        300
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// MAP START
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+if (
+
+ 
+
+ 
+
+ 
+
+    document.readyState ===
+
+ 
+
+ 
+
+ 
+
+    "loading"
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    document.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "DOMContentLoaded",
+
+ 
+
+ 
+
+ 
+
+        initializeDisasterMap
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+} else {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    initializeDisasterMap();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// MAP RESIZE
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+window.addEventListener(
+
+ 
+
+ 
+
+ 
+
+    "resize",
+
+ 
+
+ 
+
+ 
+
+    function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (disasterMap) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            setTimeout(
+
+ 
+
+ 
+
+ 
+
+                function () {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    disasterMap.invalidateSize();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                },
+
+ 
+
+ 
+
+ 
+
+                100
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// FINAL
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+console.log(
+
+ 
+
+ 
+
+ 
+
+    "🛡️ SafeGuard FINAL script.js loaded."
+
+ 
+
+ 
+
+ 
+
+);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// BROWSER NOTIFICATIONS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const enableNotificationsButton =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "enableNotifications"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// Ask the user for notification permission
+
+ 
+
+ 
+
+ 
+
+async function enableBrowserNotifications() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !("Notification" in window)
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        alert(
+
+ 
+
+ 
+
+ 
+
+            "Your browser does not support notifications."
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    try {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const permission =
+
+ 
+
+ 
+
+ 
+
+            await Notification.requestPermission();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (
+
+ 
+
+ 
+
+ 
+
+            permission === "granted"
+
+ 
+
+ 
+
+ 
+
+        ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                enableNotificationsButton
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                enableNotificationsButton.textContent =
+
+ 
+
+ 
+
+ 
+
+                    "🔔 Notifications Enabled";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                enableNotificationsButton.disabled =
+
+ 
+
+ 
+
+ 
+
+                    true;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            console.log(
+
+ 
+
+ 
+
+ 
+
+                "🔔 Browser notifications enabled."
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        } else {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            alert(
+
+ 
+
+ 
+
+ 
+
+                "Notifications were not enabled. Please allow notifications in your browser settings."
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    } catch (error) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        console.error(
+
+ 
+
+ 
+
+ 
+
+            "Notification permission error:",
+
+ 
+
+ 
+
+ 
+
+            error
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// Enable button
+
+ 
+
+ 
+
+ 
+
+if (
+
+ 
+
+ 
+
+ 
+
+    enableNotificationsButton
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // If already allowed
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        "Notification" in window &&
+
+ 
+
+ 
+
+ 
+
+        Notification.permission ===
+
+ 
+
+ 
+
+ 
+
+            "granted"
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        enableNotificationsButton.textContent =
+
+ 
+
+ 
+
+ 
+
+            "🔔 Notifications Enabled";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        enableNotificationsButton.disabled =
+
+ 
+
+ 
+
+ 
+
+            true;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    enableNotificationsButton.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "click",
+
+ 
+
+ 
+
+ 
+
+        enableBrowserNotifications
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// NOTIFY WHEN A NEW ALERT ARRIVES
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let previousAlertIds =
+
+ 
+
+ 
+
+ 
+
+    new Set();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let notificationsInitialized =
+
+ 
+
+ 
+
+ 
+
+    false;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+function checkForNewAlerts(
+
+ 
+
+ 
+
+ 
+
+    alerts
+
+ 
+
+ 
+
+ 
+
+) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !Array.isArray(alerts)
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    const currentAlertIds =
+
+ 
+
+ 
+
+ 
+
+        new Set(
+
+ 
+
+ 
+
+ 
+
+            alerts.map(
+
+ 
+
+ 
+
+ 
+
+                function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    return String(
+
+ 
+
+ 
+
+ 
+
+                        alertData.id
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            )
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // First Firebase load:
+
+ 
+
+ 
+
+ 
+
+    // remember existing alerts but
+
+ 
+
+ 
+
+ 
+
+    // DON'T notify the user.
+
+ 
+
+ 
+
+ 
+
+    if (
+
+ 
+
+ 
+
+ 
+
+        !notificationsInitialized
+
+ 
+
+ 
+
+ 
+
+    ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        previousAlertIds =
+
+ 
+
+ 
+
+ 
+
+            currentAlertIds;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        notificationsInitialized =
+
+ 
+
+ 
+
+ 
+
+            true;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Find newly-created alerts
+
+ 
+
+ 
+
+ 
+
+    alerts.forEach(
+
+ 
+
+ 
+
+ 
+
+        function (alertData) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const alertId =
+
+ 
+
+ 
+
+ 
+
+                String(
+
+ 
+
+ 
+
+ 
+
+                    alertData.id
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                previousAlertIds.has(
+
+ 
+
+ 
+
+ 
+
+                    alertId
+
+ 
+
+ 
+
+ 
+
+                )
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            // Remember the new alert
+
+ 
+
+ 
+
+ 
+
+            previousAlertIds.add(
+
+ 
+
+ 
+
+ 
+
+                alertId
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            // Only notify if permission
+
+ 
+
+ 
+
+ 
+
+            // has already been granted.
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                !("Notification" in window)
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                Notification.permission !==
+
+ 
+
+ 
+
+ 
+
+                "granted"
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                return;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const disaster =
+
+ 
+
+ 
+
+ 
+
+                alertData.disaster ||
+
+ 
+
+ 
+
+ 
+
+                "Emergency";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const location =
+
+ 
+
+ 
+
+ 
+
+                alertData.location ||
+
+ 
+
+ 
+
+ 
+
+                "Unknown location";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const severity =
+
+ 
+
+ 
+
+ 
+
+                alertData.severity ||
+
+ 
+
+ 
+
+ 
+
+                "Unknown";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const message =
+
+ 
+
+ 
+
+ 
+
+                alertData.message ||
+
+ 
+
+ 
+
+ 
+
+                "A new emergency alert has been issued.";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            new Notification(
+
+ 
+
+ 
+
+ 
+
+                "🚨 SafeGuard Emergency Alert",
+
+ 
+
+ 
+
+ 
+
+                {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    body:
+
+ 
+
+ 
+
+ 
+
+                        getDisasterIcon(
+
+ 
+
+ 
+
+ 
+
+                            disaster
+
+ 
+
+ 
+
+ 
+
+                        ) +
+
+ 
+
+ 
+
+ 
+
+                        " " +
+
+ 
+
+ 
+
+ 
+
+                        disaster +
+
+ 
+
+ 
+
+ 
+
+                        "\n" +
+
+ 
+
+ 
+
+ 
+
+                        "📍 " +
+
+ 
+
+ 
+
+ 
+
+                        location +
+
+ 
+
+ 
+
+ 
+
+                        "\n" +
+
+ 
+
+ 
+
+ 
+
+                        "⚠️ Severity: " +
+
+ 
+
+ 
+
+ 
+
+                        severity +
+
+ 
+
+ 
+
+ 
+
+                        "\n\n" +
+
+ 
+
+ 
+
+ 
+
+                        message,
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    tag:
+
+ 
+
+ 
+
+ 
+
+                        "safeguard-" +
+
+ 
+
+ 
+
+ 
+
+                        alertId
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    // Remove IDs that are no longer active
+
+ 
+
+ 
+
+ 
+
+    previousAlertIds =
+
+ 
+
+ 
+
+ 
+
+        new Set(
+
+ 
+
+ 
+
+ 
+
+            currentAlertIds
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// WATCH FIREBASE FOR NEW ALERTS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+activeAlertsRef.on(
+
+ 
+
+ 
+
+ 
+
+    "value",
+
+ 
+
+ 
+
+ 
+
+    function (snapshot) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const alerts =
+
+ 
+
+ 
+
+ 
+
+            toArray(
+
+ 
+
+ 
+
+ 
+
+                snapshot.val()
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        checkForNewAlerts(
+
+ 
+
+ 
+
+ 
+
+            alerts
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// ADMIN LOCATION SEARCH
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const locationInput =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById("location");
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+const locationSuggestions =
+
+ 
+
+ 
+
+ 
+
+    document.getElementById(
+
+ 
+
+ 
+
+ 
+
+        "locationSuggestions"
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+let locationSearchTimer = null;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+// Search locations using OpenStreetMap
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+async function searchAdminLocations(query) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (!locationSuggestions) {
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    query = query.trim();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    if (query.length < 3) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        locationSuggestions.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        return;
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    locationSuggestions.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+        <div class="location-loading">
+
+ 
+
+ 
+
+ 
+
+            🔍 Searching...
+
+ 
+
+ 
+
+ 
+
+        </div>
+
+ 
+
+ 
+
+ 
+
+    `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    try {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const url =
+
+ 
+
+ 
+
+ 
+
+            "https://nominatim.openstreetmap.org/search" +
+
+ 
+
+ 
+
+ 
+
+            "?format=json" +
+
+ 
+
+ 
+
+ 
+
+            "&addressdetails=1" +
+
+ 
+
+ 
+
+ 
+
+            "&limit=5" +
+
+ 
+
+ 
+
+ 
+
+            "&countrycodes=in" +
+
+ 
+
+ 
+
+ 
+
+            "&q=" +
+
+ 
+
+ 
+
+ 
+
+            encodeURIComponent(query);
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const response =
+
+ 
+
+ 
+
+ 
+
+            await fetch(url, {
+
+ 
+
+ 
+
+ 
+
+                headers: {
+
+ 
+
+ 
+
+ 
+
+                    "Accept":
+
+ 
+
+ 
+
+ 
+
+                        "application/json"
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+            });
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (!response.ok) {
+
+ 
+
+ 
+
+ 
+
+            throw new Error(
+
+ 
+
+ 
+
+ 
+
+                "Location search failed"
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        const results =
+
+ 
+
+ 
+
+ 
+
+            await response.json();
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        if (
+
+ 
+
+ 
+
+ 
+
+            !results ||
+
+ 
+
+ 
+
+ 
+
+            results.length === 0
+
+ 
+
+ 
+
+ 
+
+        ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            locationSuggestions.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+                <div class="location-no-result">
+
+ 
+
+ 
+
+ 
+
+                    No location found.
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+            `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            return;
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        locationSuggestions.innerHTML = "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        results.forEach(
+
+ 
+
+ 
+
+ 
+
+            function(result) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                const option =
+
+ 
+
+ 
+
+ 
+
+                    document.createElement(
+
+ 
+
+ 
+
+ 
+
+                        "button"
+
+ 
+
+ 
+
+ 
+
+                    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                option.type = "button";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                option.className =
+
+ 
+
+ 
+
+ 
+
+                    "location-suggestion";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                option.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+                    <strong>
+
+ 
+
+ 
+
+ 
+
+                        📍 ${escapeHTML(
+
+ 
+
+ 
+
+ 
+
+                            result.display_name
+
+ 
+
+ 
+
+ 
+
+                        )}
+
+ 
+
+ 
+
+ 
+
+                    </strong>
+
+ 
+
+ 
+
+ 
+
+                `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                option.addEventListener(
+
+ 
+
+ 
+
+ 
+
+                    "click",
+
+ 
+
+ 
+
+ 
+
+                    function() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        /*
+
+ 
+
+ 
+
+ 
+
+                         * Use the actual place name
+
+ 
+
+ 
+
+ 
+
+                         * rather than the entire
+
+ 
+
+ 
+
+ 
+
+                         * OpenStreetMap address.
+
+ 
+
+ 
+
+ 
+
+                         */
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        const address =
+
+ 
+
+ 
+
+ 
+
+                            result.address || {};
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        const selectedLocation =
+
+ 
+
+ 
+
+ 
+
+                            address.city ||
+
+ 
+
+ 
+
+ 
+
+                            address.town ||
+
+ 
+
+ 
+
+ 
+
+                            address.village ||
+
+ 
+
+ 
+
+ 
+
+                            address.suburb ||
+
+ 
+
+ 
+
+ 
+
+                            address.municipality ||
+
+ 
+
+ 
+
+ 
+
+                            result.name ||
+
+ 
+
+ 
+
+ 
+
+                            result.display_name;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        locationInput.value =
+
+ 
+
+ 
+
+ 
+
+                            selectedLocation;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        locationSuggestions.innerHTML =
+
+ 
+
+ 
+
+ 
+
+                            "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        /*
+
+ 
+
+ 
+
+ 
+
+                         * Save exact coordinates.
+
+ 
+
+ 
+
+ 
+
+                         * The alert can use these later
+
+ 
+
+ 
+
+ 
+
+                         * for accurate map placement.
+
+ 
+
+ 
+
+ 
+
+                         */
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        locationInput.dataset.lat =
+
+ 
+
+ 
+
+ 
+
+                            result.lat;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        locationInput.dataset.lng =
+
+ 
+
+ 
+
+ 
+
+                            result.lon;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        locationInput.dataset.displayName =
+
+ 
+
+ 
+
+ 
+
+                            result.display_name;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        console.log(
+
+ 
+
+ 
+
+ 
+
+                            "📍 Selected location:",
+
+ 
+
+ 
+
+ 
+
+                            selectedLocation
+
+ 
+
+ 
+
+ 
+
+                        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        console.log(
+
+ 
+
+ 
+
+ 
+
+                            "Coordinates:",
+
+ 
+
+ 
+
+ 
+
+                            result.lat,
+
+ 
+
+ 
+
+ 
+
+                            result.lon
+
+ 
+
+ 
+
+ 
+
+                        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    }
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                locationSuggestions.appendChild(
+
+ 
+
+ 
+
+ 
+
+                    option
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    } catch (error) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        console.error(
+
+ 
+
+ 
+
+ 
+
+            "Location search error:",
+
+ 
+
+ 
+
+ 
+
+            error
+
+ 
+
+ 
+
+ 
+
+        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        locationSuggestions.innerHTML = `
+
+ 
+
+ 
+
+ 
+
+            <div class="location-no-result">
+
+ 
+
+ 
+
+ 
+
+                ❌ Unable to search locations.
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        `;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+// Location input
+
+ 
+
+ 
+
+ 
+
+// -----------------------------------------------------
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+if (locationInput) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    locationInput.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "input",
+
+ 
+
+ 
+
+ 
+
+        function() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            clearTimeout(
+
+ 
+
+ 
+
+ 
+
+                locationSearchTimer
+
+ 
+
+ 
+
+ 
+
+            );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            /*
+
+ 
+
+ 
+
+ 
+
+             * If the user changes the text
+
+ 
+
+ 
+
+ 
+
+             * manually, remove the previously
+
+ 
+
+ 
+
+ 
+
+             * selected coordinates.
+
+ 
+
+ 
+
+ 
+
+             */
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            delete locationInput.dataset.lat;
+
+ 
+
+ 
+
+ 
+
+            delete locationInput.dataset.lng;
+
+ 
+
+ 
+
+ 
+
+            delete locationInput.dataset.displayName;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            const query =
+
+ 
+
+ 
+
+ 
+
+                locationInput.value;
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            locationSearchTimer =
+
+ 
+
+ 
+
+ 
+
+                setTimeout(
+
+ 
+
+ 
+
+ 
+
+                    function() {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        searchAdminLocations(
+
+ 
+
+ 
+
+ 
+
+                            query
+
+ 
+
+ 
+
+ 
+
+                        );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    },
+
+ 
+
+ 
+
+ 
+
+                    500
+
+ 
+
+ 
+
+ 
+
+                );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    /*
+
+ 
+
+ 
+
+ 
+
+     * Close suggestions when the user
+
+ 
+
+ 
+
+ 
+
+     * clicks somewhere else.
+
+ 
+
+ 
+
+ 
+
+     */
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    document.addEventListener(
+
+ 
+
+ 
+
+ 
+
+        "click",
+
+ 
+
+ 
+
+ 
+
+        function(event) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            if (
+
+ 
+
+ 
+
+ 
+
+                !event.target.closest(
+
+ 
+
+ 
+
+ 
+
+                    ".location-picker"
+
+ 
+
+ 
+
+ 
+
+                )
+
+ 
+
+ 
+
+ 
+
+            ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                if (
+
+ 
+
+ 
+
+ 
+
+                    locationSuggestions
+
+ 
+
+ 
+
+ 
+
+                ) {
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    locationSuggestions.innerHTML =
+
+ 
+
+ 
+
+ 
+
+                        "";
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            }
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        }
+
+ 
+
+ 
+
+ 
+
+    );
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+}
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+// INITIALIZE ALERT FILTERS
+
+ 
+
+ 
+
+ 
+
+// =====================================================
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+setupAlertFilters();
