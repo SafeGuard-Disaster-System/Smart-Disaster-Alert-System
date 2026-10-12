@@ -11039,3 +11039,563 @@ textarea {
  
 
 }
+
+ 
+
+ 
+
+/* =====================================================
+
+   SAFEGUARD — USER PAGE MODERN DESIGN LAYER
+
+   Design only: functionality is unchanged.
+
+   ===================================================== */
+
+ 
+
+:root {
+
+    --sg-navy: #12345b;
+
+    --sg-blue: #1f5f9b;
+
+    --sg-red: #d92d20;
+
+    --sg-red-dark: #b42318;
+
+    --sg-green: #16803c;
+
+    --sg-orange: #d97706;
+
+    --sg-bg: #f4f7fb;
+
+    --sg-card: #ffffff;
+
+    --sg-border: #e3e8ef;
+
+    --sg-text: #172033;
+
+    --sg-muted: #667085;
+
+    --sg-shadow: 0 8px 24px rgba(16, 24, 40, 0.08);
+
+    --sg-radius: 16px;
+
+}
+
+ 
+
+/* Page foundation */
+
+body {
+
+    background: var(--sg-bg);
+
+    color: var(--sg-text);
+
+}
+
+ 
+
+main,
+
+.main-content,
+
+.page-content,
+
+.container {
+
+    box-sizing: border-box;
+
+}
+
+ 
+
+/* Header / navigation polish */
+
+header,
+
+.header,
+
+.navbar {
+
+    box-shadow: 0 2px 12px rgba(16, 24, 40, 0.08);
+
+}
+
+ 
+
+header a,
+
+.header a,
+
+.navbar a {
+
+    transition: opacity 0.2s ease, transform 0.2s ease;
+
+}
+
+ 
+
+header a:hover,
+
+.header a:hover,
+
+.navbar a:hover {
+
+    opacity: 0.86;
+
+}
+
+ 
+
+/* General cards */
+
+.card,
+
+.alert-card,
+
+.contact-card,
+
+.info-card,
+
+.form-card,
+
+.panel,
+
+.section-card {
+
+    border: 1px solid var(--sg-border);
+
+    border-radius: var(--sg-radius);
+
+    box-shadow: var(--sg-shadow);
+
+    background: var(--sg-card);
+
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+}
+
+ 
+
+.card:hover,
+
+.contact-card:hover,
+
+.info-card:hover,
+
+.section-card:hover {
+
+    transform: translateY(-2px);
+
+    box-shadow: 0 12px 30px rgba(16, 24, 40, 0.11);
+
+}
+
+ 
+
+/* Section headings */
+
+section h2,
+
+section h3,
+
+.section-title {
+
+    color: var(--sg-navy);
+
+    letter-spacing: -0.01em;
+
+}
+
+ 
+
+/* Active emergency emphasis */
+
+.active-alert,
+
+.current-alert,
+
+.alert-active,
+
+.alert-card.active {
+
+    border-left: 5px solid var(--sg-red);
+
+}
+
+ 
+
+.severity-high,
+
+.high,
+
+.high-severity {
+
+    color: var(--sg-red-dark);
+
+}
+
+ 
+
+.severity-medium,
+
+.medium {
+
+    color: var(--sg-orange);
+
+}
+
+ 
+
+.severity-low,
+
+.low {
+
+    color: var(--sg-green);
+
+}
+
+ 
+
+/* Emergency buttons */
+
+button,
+
+.btn,
+
+.button {
+
+    border-radius: 10px;
+
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+
+}
+
+ 
+
+button:hover,
+
+.btn:hover,
+
+.button:hover {
+
+    transform: translateY(-1px);
+
+}
+
+ 
+
+button:active,
+
+.btn:active,
+
+.button:active {
+
+    transform: translateY(0);
+
+}
+
+ 
+
+/* Map presentation */
+
+#disasterMap,
+
+#map,
+
+.map-container,
+
+.map-wrapper {
+
+    border: 1px solid var(--sg-border);
+
+    border-radius: var(--sg-radius);
+
+    overflow: hidden;
+
+    box-shadow: var(--sg-shadow);
+
+}
+
+ 
+
+/* Emergency contacts */
+
+.emergency-contact,
+
+.emergency-card,
+
+.contact-card {
+
+    border-radius: 14px;
+
+}
+
+ 
+
+.copy-button,
+
+.copy-btn {
+
+    min-height: 40px;
+
+}
+
+ 
+
+/* Inputs */
+
+input,
+
+select,
+
+textarea {
+
+    border: 1px solid #d0d5dd;
+
+    border-radius: 10px;
+
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+}
+
+ 
+
+input:focus,
+
+select:focus,
+
+textarea:focus {
+
+    border-color: var(--sg-blue);
+
+    box-shadow: 0 0 0 3px rgba(31, 95, 155, 0.12);
+
+    outline: none;
+
+}
+
+ 
+
+/* Mobile: keep the same design but reduce visual density */
+
+@media (max-width: 768px) {
+
+    .card,
+
+    .alert-card,
+
+    .contact-card,
+
+    .info-card,
+
+    .form-card,
+
+    .panel,
+
+    .section-card {
+
+        border-radius: 14px;
+
+        box-shadow: 0 5px 18px rgba(16, 24, 40, 0.07);
+
+    }
+
+ 
+
+    .card:hover,
+
+    .contact-card:hover,
+
+    .info-card:hover,
+
+    .section-card:hover {
+
+        transform: none;
+
+    }
+
+}
+
+ 
+
+ 
+
+/* =====================================================
+
+   SAFEGUARD — USER HEADER / NAVIGATION DESIGN V2
+
+   Design only. No functionality changes.
+
+   ===================================================== */
+
+ 
+
+@media (min-width: 769px) {
+
+ 
+
+    header,
+
+    .header,
+
+    .navbar {
+
+        position: sticky;
+
+        top: 0;
+
+        z-index: 1000;
+
+        backdrop-filter: blur(10px);
+
+    }
+
+ 
+
+    header .container,
+
+    .header .container,
+
+    .navbar .container,
+
+    .nav-container,
+
+    .navbar-container,
+
+    .header-container {
+
+        min-height: 68px;
+
+        display: flex;
+
+        align-items: center;
+
+    }
+
+ 
+
+    header a,
+
+    .header a,
+
+    .navbar a {
+
+        border-radius: 9px;
+
+        padding: 8px 12px;
+
+    }
+
+ 
+
+    header a:hover,
+
+    .header a:hover,
+
+    .navbar a:hover {
+
+        background: rgba(31, 95, 155, 0.08);
+
+        transform: translateY(-1px);
+
+    }
+
+}
+
+ 
+
+@media (max-width: 768px) {
+
+ 
+
+    header,
+
+    .header,
+
+    .navbar {
+
+        position: sticky;
+
+        top: 0;
+
+        z-index: 1000;
+
+        width: 100%;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    header .container,
+
+    .header .container,
+
+    .navbar .container,
+
+    .nav-container,
+
+    .navbar-container,
+
+    .header-container {
+
+        min-height: 60px;
+
+        width: 100%;
+
+        max-width: 100%;
+
+        display: flex;
+
+        align-items: center;
+
+        gap: 8px;
+
+        padding-left: 12px;
+
+        padding-right: 12px;
+
+        box-sizing: border-box;
+
+    }
+
+ 
+
+    header a,
+
+    .header a,
+
+    .navbar a {
+
+        border-radius: 8px;
+
+    }
+
+}
+
+ 
+
+/* Accessible keyboard focus */
+
+header a:focus-visible,
+
+.header a:focus-visible,
+
+.navbar a:focus-visible,
+
+header button:focus-visible,
+
+.header button:focus-visible,
+
+.navbar button:focus-visible {
+
+    outline: 3px solid rgba(31, 95, 155, 0.28);
+
+    outline-offset: 2px;
+
+}
