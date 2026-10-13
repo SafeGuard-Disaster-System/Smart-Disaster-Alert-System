@@ -429,6 +429,18 @@ function runLocationSelfTests() {
 function runCapSelfTests() {
   const tests = [];
 
+  // Test: empty CAP state structure
+  const emptyState = createEmptyCapState();
+
+  tests.push({
+    name: "Empty CAP state has required fields",
+    passed:
+      emptyState.version === 1 &&
+      typeof emptyState.processedMessages === "object" &&
+      typeof emptyState.activeAlerts === "object" &&
+      emptyState.lastUpdated === null
+  });
+
   function makeRecord(overrides = {}) {
     return {
       sender: "Test-Sender",
