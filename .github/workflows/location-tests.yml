@@ -22,3 +22,6 @@ jobs:
 
       - name: Run location self-tests
         run: node scripts/sachet-check.js --test-location
+
+      - name: Run synthetic CAP tests
+        run: node scripts/sachet-check.js --test-cap
