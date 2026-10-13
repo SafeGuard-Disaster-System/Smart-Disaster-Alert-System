@@ -272,6 +272,20 @@ async function checkCap(item) {
   };
 }
 
+// --------------------------------------------------
+// PERSISTENT CAP STATE — STRUCTURE ONLY
+// No file writes, network requests, or Firebase access
+// --------------------------------------------------
+
+function createEmptyCapState() {
+  return {
+    version: 1,
+    processedMessages: {},
+    activeAlerts: {},
+    lastUpdated: null
+  };
+}
+
 function analyzeBatch(records) {
   const seenIds = new Set();
   const seenMessages = new Set();
