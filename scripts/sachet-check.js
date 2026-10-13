@@ -5,43 +5,8 @@ const FEED_URL =
 const CAP_HOST = "sachet.ndma.gov.in";
 const CAP_PATH = "/cap_public_website/FetchXMLFile";
 
-// Controlled sample; increase only after reviewing results.
 const MAX_CAP_CHECKS = 30;
 const CONCURRENCY = 2;
-
-const MAHARASHTRA_TERMS = [
-  "maharashtra", "महाराष्ट्र", "mumbai", "मुंबई", "navi mumbai",
-  "नवी मुंबई", "thane", "ठाणे", "palghar", "पालघर", "raigad",
-  "रायगड", "ratnagiri", "रत्नागिरी", "sindhudurg", "सिंधुदुर्ग",
-  "pune", "पुणे", "nashik", "नाशिक", "nagpur", "नागपूर",
-  "kolhapur", "कोल्हापूर", "satara", "सातारा", "sangli", "सांगली",
-  "solapur", "सोलापूर", "ahilyanagar", "ahmednagar", "अहिल्यानगर",
-  "dhule", "धुळे", "nandurbar", "नंदुरबार", "jalgaon", "जळगाव",
-  "chhatrapati sambhajinagar", "aurangabad", "छत्रपती संभाजीनगर",
-  "jalna", "जालना", "beed", "बीड", "latur", "लातूर",
-  "dharashiv", "osmanabad", "nanded", "नांदेड", "parbhani", "परभणी",
-  "hingoli", "हिंगोली", "akola", "अकोला", "amravati", "अमरावती",
-  "buldhana", "बुलढाणा", "washim", "वाशिम", "yavatmal", "यवतमाळ",
-  "wardha", "वर्धा", "bhandara", "भंडारा", "gondia", "गोंदिया",
-  "chandrapur", "चंद्रपूर", "gadchiroli", "गडचिरोली",
-  "baramati", "kalyan", "कल्याण", "dombivli", "डोंबिवली",
-  "ulhasnagar", "badlapur", "panvel", "पनवेल", "vasai", "virar"
-];
-
-const OTHER_STATE_TERMS = [
-  "andhra pradesh", "आंध्र प्रदेश", "bihar", "बिहार",
-  "uttar pradesh", "उत्तर प्रदेश", "uttarakhand", "उत्तराखंड",
-  "tamil nadu", "तमिलनाडु", "karnataka", "कर्नाटक",
-  "kerala", "केरल", "telangana", "तेलंगाना",
-  "gujarat", "गुजरात", "rajasthan", "राजस्थान",
-  "madhya pradesh", "मध्य प्रदेश", "goa", "गोवा",
-  "west bengal", "पश्चिम बंगाल", "odisha", "ओडिशा",
-  "assam", "असम", "punjab", "पंजाब", "haryana", "हरियाणा",
-  "himachal pradesh", "हिमाचल प्रदेश", "jharkhand", "झारखंड",
-  "chhattisgarh", "छत्तीसगढ़", "manipur", "meghalaya",
-  "mizoram", "nagaland", "tripura", "sikkim", "arunachal pradesh",
-  "puducherry", "पुदुचेरी"
-];
 
 function decodeXml(value = "") {
   return value
@@ -73,93 +38,6 @@ function getCapTag(xml, tag) {
   return match ? decodeXml(match[1]) : "";
 }
 
-function findTerms(text, terms) {
-  const normalized = text.toLowerCase();
-
-  return terms.filter(term => {
-    const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(^|[^a-z])${safe}([^a-z]|$)`, "i")
-      .test(normalized);
-  });
-}
-
-function classifyLocation(text) {
-  const maharashtra = findTerms(text, MAHARASHTRA_TERMS);
-  const otherStates = findTerms(text, OTHER_STATE_TERMS);
-
-  if (maharashtra.length) {
-    return {
-      classification: "MAHARASHTRA KEYWORD — REVIEW",
-      maharashtra,
-      otherStates
-    };
-  }
-
-  if (otherStates.length) {
-    return {
-      classification: "OTHER STATE KEYWORD — REVIEW",
-      maharashtra,
-      otherStates
-    };
-  }
-
-  return {
-    classification: "LOCATION UNCLEAR",
-    maharashtra,
-    otherStates
-  };
-}
-
-function parseDate(value) {
-  if (!value) return null;
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : timestamp;
-}
-
-function classifyTime(cap) {
-  const now = Date.now();
-  const type = cap.msgType.toLowerCase();
-
-  if (type === "cancel") return "CANCEL MESSAGE — REVIEW";
-  if (type === "update") return "UPDATE MESSAGE — REVIEW";
-  if (["ack", "error"].includes(type)) {
-    return `REVIEW — message type ${cap.msgType}`;
-  }
-
-  if (cap.status && cap.status.toLowerCase() !== "actual") {
-    return `REVIEW — status ${cap.status}`;
-  }
-
-  if (type !== "alert") {
-    return `REVIEW — message type ${cap.msgType || "missing"}`;
-  }
-
-  if (!cap.expires) return "REVIEW — expiry missing";
-
-  const expiry = parseDate(cap.expires);
-  if (expiry === null) return "REVIEW — expiry invalid";
-  if (expiry <= now) return "EXPIRED";
-
-  if (!cap.effective) return "REVIEW — effective time missing";
-
-  const effective = parseDate(cap.effective);
-  if (effective === null) return "REVIEW — effective time invalid";
-  if (effective > now) return "FUTURE — not active yet";
-
-  return "UNEXPIRED — manual review required";
-}
-
-async function fetchText(url) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "SafeGuard-Disaster-Preparedness-Prototype/1.0"
-    }
-  });
-
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.text();
-}
-
 function parseRssItems(xml) {
   const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
 
@@ -181,75 +59,166 @@ function validCapUrl(rawUrl) {
   }
 }
 
+async function fetchText(url) {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "SafeGuard-Disaster-Preparedness-Prototype/1.0"
+    }
+  });
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.text();
+}
+
+function parseReferences(value) {
+  if (!value) return [];
+
+  // CAP references are commonly sender,identifier,sent triples,
+  // with multiple triples separated by whitespace.
+  const parts = value.trim().split(/\s+/);
+  const references = [];
+
+  for (let i = 0; i + 2 < parts.length; i += 3) {
+    references.push({
+      sender: parts[i],
+      identifier: parts[i + 1],
+      sent: parts[i + 2]
+    });
+  }
+
+  return references;
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function classifyTime(cap) {
+  const type = cap.msgType.toLowerCase();
+
+  if (type === "cancel") return "CANCELLATION — REVIEW";
+  if (type === "update") return "UPDATE — REVIEW";
+  if (type === "ack" || type === "error") {
+    return `REVIEW — message type ${cap.msgType}`;
+  }
+
+  if (cap.status && cap.status.toLowerCase() !== "actual") {
+    return `REVIEW — status ${cap.status}`;
+  }
+
+  if (type !== "alert") {
+    return `REVIEW — message type ${cap.msgType || "missing"}`;
+  }
+
+  if (!cap.expires) return "REVIEW — expiry missing";
+
+  const expiry = parseDate(cap.expires);
+  if (expiry === null) return "REVIEW — expiry invalid";
+  if (expiry <= Date.now()) return "EXPIRED";
+
+  if (!cap.effective) return "REVIEW — effective time missing";
+
+  const effective = parseDate(cap.effective);
+  if (effective === null) return "REVIEW — effective time invalid";
+  if (effective > Date.now()) return "FUTURE — not active yet";
+
+  return "UNEXPIRED — manual review required";
+}
+
 async function checkCap(item) {
   const xml = await fetchText(item.link);
 
   const cap = {
-    identifier: getCapTag(xml, "identifier"),
+    identifier: getCapTag(xml, "identifier") || item.id,
+    sender: getCapTag(xml, "sender"),
+    sent: getCapTag(xml, "sent"),
     status: getCapTag(xml, "status"),
     msgType: getCapTag(xml, "msgType"),
     event: getCapTag(xml, "event"),
     severity: getCapTag(xml, "severity"),
     urgency: getCapTag(xml, "urgency"),
     certainty: getCapTag(xml, "certainty"),
-    sent: getCapTag(xml, "sent"),
     effective: getCapTag(xml, "effective"),
-    onset: getCapTag(xml, "onset"),
     expires: getCapTag(xml, "expires"),
-    references: getCapTag(xml, "references"),
+    referencesText: getCapTag(xml, "references"),
     headline: getCapTag(xml, "headline"),
     description: getCapTag(xml, "description"),
-    instruction: getCapTag(xml, "instruction"),
     areaDesc: getCapTag(xml, "areaDesc")
   };
 
-  const searchableText = [
-    item.title,
-    cap.event,
-    cap.headline,
-    cap.description,
-    cap.instruction,
-    cap.areaDesc
-  ].join(" ");
-
-  const location = classifyLocation(searchableText);
-
   return {
     title: item.title || cap.headline || "(untitled)",
-    identifier: cap.identifier || item.id || "(missing ID)",
-    references: cap.references || "(none provided)",
+    identifier: cap.identifier || "(missing ID)",
+    sender: cap.sender || "(missing sender)",
+    sent: cap.sent || "(missing sent time)",
+    msgType: cap.msgType || "(missing type)",
+    status: cap.status || "(missing status)",
     event: cap.event || "(missing event)",
     area: cap.areaDesc || "(missing area)",
     severity: cap.severity || "(missing severity)",
     urgency: cap.urgency || "(missing urgency)",
     certainty: cap.certainty || "(missing certainty)",
-    sent: cap.sent || "(missing sent time)",
-    expires: cap.expires || "(missing expiry)",
-    time: classifyTime(cap),
-    ...location
+    references: parseReferences(cap.referencesText),
+    timeClassification: classifyTime(cap)
   };
 }
 
+function analyzeBatch(records) {
+  const seenIds = new Set();
+  const seenMessages = new Set();
+
+  for (const record of records) {
+    const duplicateKey = `${record.sender}|${record.identifier}`;
+    const messageKey = `${duplicateKey}|${record.sent}`;
+
+    if (seenIds.has(duplicateKey)) {
+      record.duplicateClassification =
+        "DUPLICATE ID IN THIS BATCH — REVIEW";
+    } else {
+      record.duplicateClassification = "ID FIRST SEEN IN THIS BATCH";
+    }
+
+    if (seenMessages.has(messageKey)) {
+      record.messageClassification =
+        "DUPLICATE MESSAGE — REVIEW";
+    } else {
+      record.messageClassification = "MESSAGE FIRST SEEN IN THIS BATCH";
+    }
+
+    seenIds.add(duplicateKey);
+    seenMessages.add(messageKey);
+
+    if (record.timeClassification === "UPDATE — REVIEW") {
+      record.messageClassification = "UPDATE — LINK TO ORIGINAL";
+    } else if (record.timeClassification === "CANCELLATION — REVIEW") {
+      record.messageClassification = "CANCELLATION — REVIEW ORIGINAL";
+    }
+
+    if (record.references.length) {
+      record.messageClassification +=
+        `; references ${record.references.map(ref => ref.identifier).join(", ")}`;
+    }
+  }
+}
+
 async function main() {
-  console.log("=== SafeGuard Expanded CAP Sample Dry Run ===");
+  console.log("=== SafeGuard CAP Message Handling Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
   console.log(`CAP request limit: ${MAX_CAP_CHECKS}`);
   console.log(`Concurrent requests: ${CONCURRENCY}`);
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
-
-  console.log(`RSS items found: ${items.length}`);
-
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
   );
-
   const candidates = validItems.slice(0, MAX_CAP_CHECKS);
 
+  console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records selected: ${candidates.length}`);
-  console.log("This is a limited sample, not a complete scan.");
 
   const results = [];
   const errors = [];
@@ -260,30 +229,7 @@ async function main() {
       const item = candidates[nextIndex++];
 
       try {
-        const result = await checkCap(item);
-        results.push(result);
-
-        console.log("\n--- CAP RECORD ---");
-        console.log(`Title: ${result.title}`);
-        console.log(`ID: ${result.identifier}`);
-        console.log(`References: ${result.references}`);
-        console.log(`Event: ${result.event}`);
-        console.log(`Area: ${result.area}`);
-        console.log(`Severity: ${result.severity}`);
-        console.log(`Urgency: ${result.urgency}`);
-        console.log(`Certainty: ${result.certainty}`);
-        console.log(`Sent: ${result.sent}`);
-        console.log(`Expires: ${result.expires}`);
-        console.log(`Time: ${result.time}`);
-        console.log(`Location: ${result.classification}`);
-
-        if (result.maharashtra.length) {
-          console.log(`Maharashtra keywords: ${result.maharashtra.join(", ")}`);
-        }
-
-        if (result.otherStates.length) {
-          console.log(`Other-state keywords: ${result.otherStates.join(", ")}`);
-        }
+        results.push(await checkCap(item));
       } catch (error) {
         errors.push({ title: item.title, error: error.message });
         console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
@@ -298,34 +244,58 @@ async function main() {
     )
   );
 
-  const maharashtra = results.filter(
-    result => result.classification === "MAHARASHTRA KEYWORD — REVIEW"
-  );
-  const elsewhere = results.filter(
-    result => result.classification === "OTHER STATE KEYWORD — REVIEW"
-  );
-  const unclear = results.filter(
-    result => result.classification === "LOCATION UNCLEAR"
-  );
-  const expired = results.filter(result => result.time === "EXPIRED");
-  const updates = results.filter(result => result.time === "UPDATE MESSAGE — REVIEW");
-  const cancellations = results.filter(
-    result => result.time === "CANCEL MESSAGE — REVIEW"
-  );
+  analyzeBatch(results);
+
+  for (const record of results) {
+    console.log("\n--- CAP RECORD ---");
+    console.log(`Title: ${record.title}`);
+    console.log(`ID: ${record.identifier}`);
+    console.log(`Sender: ${record.sender}`);
+    console.log(`Sent: ${record.sent}`);
+    console.log(`Type: ${record.msgType}`);
+    console.log(`Status: ${record.status}`);
+    console.log(`Event: ${record.event}`);
+    console.log(`Area: ${record.area}`);
+    console.log(`Severity: ${record.severity}`);
+    console.log(`Urgency: ${record.urgency}`);
+    console.log(`Certainty: ${record.certainty}`);
+    console.log(`Time: ${record.timeClassification}`);
+    console.log(`Duplicate: ${record.duplicateClassification}`);
+    console.log(`Message handling: ${record.messageClassification}`);
+
+    if (record.references.length) {
+      for (const ref of record.references) {
+        console.log(
+          `Reference: sender=${ref.sender}, id=${ref.identifier}, sent=${ref.sent}`
+        );
+      }
+    } else {
+      console.log("References: none provided");
+    }
+  }
+
+  const count = classification =>
+    results.filter(r => r.timeClassification === classification).length;
+
+  const duplicates = results.filter(
+    r => r.duplicateClassification === "DUPLICATE ID IN THIS BATCH — REVIEW"
+  ).length;
+
+  const updates = count("UPDATE — REVIEW");
+  const cancellations = count("CANCELLATION — REVIEW");
+  const expired = count("EXPIRED");
 
   console.log("\n=== SUMMARY ===");
   console.log(`RSS items scanned: ${items.length}`);
-  console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records checked: ${results.length}`);
   console.log(`Fetch errors: ${errors.length}`);
-  console.log(`Maharashtra keyword matches: ${maharashtra.length}`);
-  console.log(`Other-state keyword matches: ${elsewhere.length}`);
-  console.log(`Location unclear: ${unclear.length}`);
-  console.log(`Expired records: ${expired.length}`);
-  console.log(`Update messages: ${updates.length}`);
-  console.log(`Cancellation messages: ${cancellations.length}`);
+  console.log(`Repeated IDs in batch: ${duplicates}`);
+  console.log(`Update messages: ${updates}`);
+  console.log(`Cancellation messages: ${cancellations}`);
+  console.log(`Expired alerts: ${expired}`);
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
+  console.log("Note: duplicate detection covers this batch only.");
   console.log("Dry run complete.");
 }
 
