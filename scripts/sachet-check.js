@@ -27,17 +27,20 @@ function getTag(xml, tag) {
       "i"
     )
   );
+
   return match ? decodeXml(match[1]) : "";
 }
 
 function getCapTag(xml, tag) {
   const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
   const match = xml.match(
     new RegExp(
       `<(?:[\\w.-]+:)?${safe}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${safe}\\s*>`,
       "i"
     )
   );
+
   return match ? decodeXml(match[1]) : "";
 }
 
@@ -55,6 +58,7 @@ function parseRssItems(xml) {
 function validCapUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
+
     return (
       url.protocol === "https:" &&
       url.hostname === CAP_HOST &&
@@ -69,7 +73,8 @@ async function fetchText(url) {
   const response = await fetch(url, {
     headers: {
       "User-Agent": "SafeGuard-Disaster-Preparedness-Prototype/1.0"
-    }
+    },
+    signal: AbortSignal.timeout(20000)
   });
 
   if (!response.ok) {
@@ -79,18 +84,24 @@ async function fetchText(url) {
   return response.text();
 }
 
+// CAP references use comma-separated fields:
+// sender,identifier,sent-time
 function parseReferences(value) {
   if (!value) return [];
 
-  const parts = value.trim().split(/\s+/);
   const references = [];
+  const entries = value.trim().split(/\s+/);
 
-  for (let i = 0; i + 2 < parts.length; i += 3) {
-    references.push({
-      sender: parts[i],
-      identifier: parts[i + 1],
-      sent: parts[i + 2]
-    });
+  for (const entry of entries) {
+    const parts = entry.split(",");
+
+    if (parts.length >= 3) {
+      references.push({
+        sender: parts[0],
+        identifier: parts[1],
+        sent: parts.slice(2).join(",")
+      });
+    }
   }
 
   return references;
@@ -106,8 +117,13 @@ function parseDate(value) {
 function classifyTime(cap) {
   const type = cap.msgType.toLowerCase();
 
-  if (type === "cancel") return "CANCELLATION — REVIEW";
-  if (type === "update") return "UPDATE — REVIEW";
+  if (type === "cancel") {
+    return "CANCELLATION — REVIEW";
+  }
+
+  if (type === "update") {
+    return "UPDATE — REVIEW";
+  }
 
   if (type === "ack" || type === "error") {
     return `REVIEW — message type ${cap.msgType}`;
@@ -121,32 +137,39 @@ function classifyTime(cap) {
     return `REVIEW — message type ${cap.msgType || "missing"}`;
   }
 
-  if (!cap.expires) return "REVIEW — expiry missing";
+  if (!cap.expires) {
+    return "REVIEW — expiry missing";
+  }
 
   const expiry = parseDate(cap.expires);
-  if (expiry === null) return "REVIEW — expiry invalid";
-  if (expiry <= Date.now()) return "EXPIRED";
 
-  if (!cap.effective) return "REVIEW — effective time missing";
+  if (expiry === null) {
+    return "REVIEW — expiry invalid";
+  }
+
+  if (expiry <= Date.now()) {
+    return "EXPIRED";
+  }
+
+  if (!cap.effective) {
+    return "REVIEW — effective time missing";
+  }
 
   const effective = parseDate(cap.effective);
-  if (effective === null) return "REVIEW — effective time invalid";
-  if (effective > Date.now()) return "FUTURE — not active yet";
+
+  if (effective === null) {
+    return "REVIEW — effective time invalid";
+  }
+
+  if (effective > Date.now()) {
+    return "FUTURE — not active yet";
+  }
 
   return "UNEXPIRED — manual review required";
 }
 
 async function checkCap(item) {
   const xml = await fetchText(item.link);
-
-  // Temporary diagnostics to inspect actual CAP XML references.
-  console.log("\nDEBUG CAP URL:", item.link);
-
-  const referencesSnippet =
-    xml.match(/.{0,100}references.{0,250}/is)?.[0] ||
-    "No references text found";
-
-  console.log("DEBUG REFERENCES XML:", referencesSnippet);
 
   const cap = {
     identifier: getCapTag(xml, "identifier") || item.id,
@@ -160,8 +183,11 @@ async function checkCap(item) {
     certainty: getCapTag(xml, "certainty"),
     effective: getCapTag(xml, "effective"),
     expires: getCapTag(xml, "expires"),
+
+    // Read references directly from the CAP XML.
     referencesText:
-      xml.match(/<cap:references\b[^>]*>([\s\S]*?)<\/cap:references>/i)?.[1]?.trim() || "",
+      getCapTag(xml, "references"),
+
     headline: getCapTag(xml, "headline"),
     description: getCapTag(xml, "description"),
     areaDesc: getCapTag(xml, "areaDesc")
@@ -179,6 +205,8 @@ async function checkCap(item) {
     severity: cap.severity || "(missing severity)",
     urgency: cap.urgency || "(missing urgency)",
     certainty: cap.certainty || "(missing certainty)",
+    effective: cap.effective,
+    expires: cap.expires,
     references: parseReferences(cap.referencesText),
     timeClassification: classifyTime(cap)
   };
@@ -201,7 +229,8 @@ function analyzeBatch(records) {
     }
 
     if (seenMessages.has(messageKey)) {
-      record.messageClassification = "DUPLICATE MESSAGE — REVIEW";
+      record.messageClassification =
+        "DUPLICATE MESSAGE — REVIEW";
     } else {
       record.messageClassification =
         "MESSAGE FIRST SEEN IN THIS BATCH";
@@ -219,7 +248,7 @@ function analyzeBatch(records) {
         "CANCELLATION — REVIEW ORIGINAL";
     }
 
-    if (record.references.length) {
+    if (record.references.length > 0) {
       record.messageClassification +=
         `; references ${record.references
           .map(ref => ref.identifier)
@@ -236,9 +265,11 @@ async function main() {
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
+
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
   );
+
   const candidates = validItems.slice(0, MAX_CAP_CHECKS);
 
   console.log(`RSS items found: ${items.length}`);
@@ -260,6 +291,7 @@ async function main() {
           title: item.title,
           error: error.message
         });
+
         console.log(
           `FETCH ERROR: ${item.title} | ${error.message}`
         );
@@ -293,7 +325,7 @@ async function main() {
     console.log(`Duplicate: ${record.duplicateClassification}`);
     console.log(`Message handling: ${record.messageClassification}`);
 
-    if (record.references.length) {
+    if (record.references.length > 0) {
       for (const ref of record.references) {
         console.log(
           `Reference: sender=${ref.sender}, ` +
