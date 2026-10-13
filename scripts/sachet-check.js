@@ -341,6 +341,11 @@ function applyCapMessageToState(state, record) {
     return { state: nextState, action: "UPDATED" };
   }
 
+  
+  if (record.timeClassification === "EXPIRED") {
+    return { state: nextState, action: "EXPIRED" };
+  }
+
   if (
     record.msgType !== "Alert" ||
     record.timeClassification !== "UNEXPIRED — manual review required"
@@ -348,9 +353,6 @@ function applyCapMessageToState(state, record) {
     return { state: nextState, action: "REVIEW" };
   }
 
-  if (record.timeClassification === "EXPIRED") {
-    return { state: nextState, action: "EXPIRED" };
-  }
 
   nextState.activeAlerts[alertKey] = {
     ...record,
