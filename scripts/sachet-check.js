@@ -515,6 +515,63 @@ function runCapSelfTests() {
       emptyState.lastUpdated === null
   });
 
+  
+  // Test: new alert requires review
+  const stateStart = createEmptyCapState();
+  const testAlert = {
+    sender: "Test-Sender",
+    identifier: "CAP-NEW",
+    sent: "2026-10-13T10:00:00Z",
+    msgType: "Alert",
+    timeClassification: "UNEXPIRED — manual review required",
+    references: []
+  };
+
+  const newResult = applyCapMessageToState(stateStart, testAlert);
+
+  tests.push({
+    name: "New alert is stored for review",
+    passed:
+      newResult.action === "NEW_ALERT_REVIEW" &&
+      Object.keys(newResult.state.activeAlerts).length === 1
+  });
+
+  // Test: repeated message is ignored
+  const duplicateResult = applyCapMessageToState(
+    newResult.state,
+    testAlert
+  );
+
+  tests.push({
+    name: "Repeated message is detected",
+    passed: duplicateResult.action === "DUPLICATE"
+  });
+
+  // Test: cancellation removes the referenced alert
+  const cancelResult = applyCapMessageToState(
+    newResult.state,
+    {
+      sender: "Test-Sender",
+      identifier: "CAP-CANCEL",
+      sent: "2026-10-13T10:05:00Z",
+      msgType: "Cancel",
+      timeClassification: "CANCELLATION — REVIEW",
+      references: [{
+        sender: "Test-Sender",
+        identifier: "CAP-NEW",
+        sent: "2026-10-13T10:00:00Z"
+      }]
+    }
+  );
+
+  tests.push({
+    name: "Cancellation removes original alert",
+    passed:
+      cancelResult.action === "CANCELLED" &&
+      Object.keys(cancelResult.state.activeAlerts).length === 0
+  });
+
+
   function makeRecord(overrides = {}) {
     return {
       sender: "Test-Sender",
