@@ -427,7 +427,73 @@ async function main() {
   console.log("Dry run complete.");
 }
 
-main().catch(error => {
-  console.error("DRY RUN FAILED:", error.message);
-  process.exitCode = 1;
-});
+
+function runLocationSelfTests() {
+  const tests = [
+    {
+      name: "Navi Mumbai",
+      area: "Navi Mumbai",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Kalamboli",
+      area: "Kalamboli",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Panvel",
+      area: "Panvel",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Bihar",
+      area: "Bihar",
+      expected: "NO LOCAL KEYWORD MATCH"
+    },
+    {
+      name: "Isolated places",
+      area: "Isolated places",
+      expected: "NEEDS MANUAL REVIEW"
+    }
+  ];
+
+  let failures = 0;
+
+  console.log("=== SafeGuard Location Self-Tests ===");
+  console.log("Mode: LOCAL TESTS ONLY");
+  console.log("SACHET requests: 0");
+  console.log("Firebase writes: 0");
+
+  for (const test of tests) {
+    const actual = classifyLocation(test.area, "", "");
+    const passed = actual === test.expected;
+
+    console.log(
+      `${passed ? "PASS" : "FAIL"}: ${test.name}`
+    );
+    console.log(`  Expected: ${test.expected}`);
+    console.log(`  Actual:   ${actual}`);
+
+    if (!passed) failures++;
+  }
+
+  console.log(
+    `\nResults: ${tests.length - failures}/${tests.length} passed`
+  );
+
+  if (failures > 0) {
+    process.exitCode = 1;
+  } else {
+    console.log("All location tests passed.");
+  }
+}
+
+if (process.argv.includes("--test-location")) {
+  runLocationSelfTests();
+} else {
+  main().catch(error => {
+    console.error("DRY RUN FAILED:", error.message);
+    process.exitCode = 1;
+  });
+}
+
