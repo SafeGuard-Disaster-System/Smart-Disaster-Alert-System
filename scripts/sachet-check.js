@@ -1,11 +1,14 @@
 const FEED_URL =
   "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml";
 
-const MAX_ALERTS_TO_CHECK = 5;
+const CAP_HOST = "sachet.ndma.gov.in";
+const CAP_PATH = "/cap_public_website/FetchXMLFile";
 
-// Explicitly named Maharashtra districts and locations.
-// This is a basic text filter, not a geographic boundary check.
-const MAHARASHTRA_LOCATIONS = [
+// Keep requests low to avoid overloading the public feed.
+const MAX_CAP_CHECKS = 10;
+const CONCURRENCY = 2;
+
+const MAHARASHTRA_TERMS = [
   "maharashtra",
   "mumbai",
   "navi mumbai",
@@ -49,22 +52,16 @@ const MAHARASHTRA_LOCATIONS = [
   "baramati",
   "kalyan",
   "dombivli",
-  "panvel",
   "ulhasnagar",
   "badlapur",
+  "panvel",
   "vasai",
-  "virar",
+  "virar"
 ];
 
 function decodeXml(value = "") {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
-      String.fromCodePoint(parseInt(hex, 16))
-    )
-    .replace(/&#(\d+);/g, (_, num) =>
-      String.fromCodePoint(parseInt(num, 10))
-    )
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -73,273 +70,260 @@ function decodeXml(value = "") {
     .trim();
 }
 
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function getTag(xml, tag) {
-  const name = escapeRegex(tag);
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = xml.match(
-    new RegExp(
-      `<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}\\s*>`,
-      "i"
-    )
+    new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}\\s*>`, "i")
   );
-
   return match ? decodeXml(match[1]) : "";
 }
 
 function getCapTag(xml, tag) {
-  const name = escapeRegex(tag);
+  const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = xml.match(
     new RegExp(
-      `<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}\\s*>`,
+      `<(?:\\w+:)?${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${escaped}\\s*>`,
       "i"
     )
   );
-
   return match ? decodeXml(match[1]) : "";
 }
 
-async function fetchText(url, label) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "SafeGuard-Disaster-Alert-System/1.0",
-      Accept: "application/xml, text/xml, */*",
-    },
-    signal: AbortSignal.timeout(20000),
+function matchesMaharashtra(text) {
+  const normalized = text.toLowerCase();
+  return MAHARASHTRA_TERMS.filter(term => {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z])${escaped}([^a-z]|$)`, "i").test(normalized);
   });
-
-  console.log(`${label} HTTP status:`, response.status);
-
-  if (!response.ok) {
-    throw new Error(`${label} request failed: HTTP ${response.status}`);
-  }
-
-  return response.text();
 }
 
 function parseDate(value) {
   if (!value) return null;
   const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : null;
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
-function classifyLocation(area, headline, description) {
-  const text = `${area} ${headline} ${description}`
-    .normalize("NFKD")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function classifyTime(cap) {
+  const now = Date.now();
 
-  const matches = MAHARASHTRA_LOCATIONS.filter((place) => {
-    const escaped = escapeRegex(place);
-    return new RegExp(`(^|\\b)${escaped}(\\b|$)`, "i").test(text);
+  if (cap.status && cap.status.toLowerCase() !== "actual") {
+    return `REVIEW — status ${cap.status}`;
+  }
+
+  const type = cap.msgType.toLowerCase();
+
+  if (["cancel", "ack", "error"].includes(type)) {
+    return `REVIEW — message type ${cap.msgType}`;
+  }
+
+  if (type === "update") {
+    return "REVIEW — update to an existing alert";
+  }
+
+  if (!["alert", "test", "exercise"].includes(type)) {
+    return `REVIEW — unknown message type ${cap.msgType || "(missing)"}`;
+  }
+
+  if (!cap.expires) return "REVIEW — expiry missing";
+  const expiry = parseDate(cap.expires);
+
+  if (expiry === null) return "REVIEW — expiry date invalid";
+  if (expiry <= now) return "EXPIRED";
+
+  if (!cap.effective) return "REVIEW — effective time missing";
+  const effective = parseDate(cap.effective);
+
+  if (effective === null) return "REVIEW — effective date invalid";
+  if (effective > now) return "FUTURE — not active yet";
+
+  return "UNEXPIRED — manual review required";
+}
+
+async function fetchText(url) {
+  const response = await fetch(url, {
+    headers: { "User-Agent": "SafeGuard-Disaster-Preparedness-Prototype/1.0" }
   });
 
-  if (matches.length > 0) {
-    return {
-      locationClassification: "MAHARASHTRA MENTION — REVIEW",
-      matchedLocations: matches,
-    };
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
   }
 
-  // No match does not prove the alert is outside Maharashtra.
-  return {
-    locationClassification: "LOCATION UNCLEAR / NO MAHARASHTRA MATCH",
-    matchedLocations: [],
-  };
+  return response.text();
 }
 
-function validateCap(cap, now) {
-  const effective = parseDate(cap.effective);
-  const onset = parseDate(cap.onset);
-  const expires = parseDate(cap.expires);
+function parseRssItems(xml) {
+  const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
 
-  const status = cap.status.toLowerCase();
-  const messageType = cap.messageType.toLowerCase();
+  return items.map(item => ({
+    title: getTag(item, "title"),
+    pubDate: getTag(item, "pubDate"),
+    id: getTag(item, "guid"),
+    link: getTag(item, "link")
+  }));
+}
 
-  let timeClassification = "REVIEW";
-
-  if (status !== "actual") {
-    timeClassification = "NON-ACTUAL STATUS — REVIEW";
-  } else if (["cancel", "ack", "error"].includes(messageType)) {
-    timeClassification = `SPECIAL MESSAGE: ${cap.messageType}`;
-  } else if (!["alert", "update"].includes(messageType)) {
-    timeClassification = "UNKNOWN MESSAGE TYPE — REVIEW";
-  } else if (!cap.identifier || !cap.event || !cap.affectedArea) {
-    timeClassification = "REQUIRED FIELD MISSING — REVIEW";
-  } else if (!expires) {
-    timeClassification = "MISSING / INVALID EXPIRY — REVIEW";
-  } else if (expires <= now) {
-    timeClassification = "EXPIRED";
-  } else if (effective && effective > now) {
-    timeClassification = "FUTURE EFFECTIVE TIME";
-  } else if (onset && onset > now) {
-    timeClassification = "UPCOMING";
-  } else {
-    timeClassification = "UNEXPIRED — REVIEW FOR PUBLISHING";
+function validCapUrl(rawUrl) {
+  try {
+    const url = new URL(rawUrl);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === CAP_HOST &&
+      url.pathname === CAP_PATH
+    );
+  } catch {
+    return false;
   }
+}
+
+async function checkCap(item) {
+  const xml = await fetchText(item.link);
+
+  const cap = {
+    identifier: getCapTag(xml, "identifier"),
+    status: getCapTag(xml, "status"),
+    msgType: getCapTag(xml, "msgType"),
+    event: getCapTag(xml, "event"),
+    severity: getCapTag(xml, "severity"),
+    urgency: getCapTag(xml, "urgency"),
+    certainty: getCapTag(xml, "certainty"),
+    effective: getCapTag(xml, "effective"),
+    onset: getCapTag(xml, "onset"),
+    expires: getCapTag(xml, "expires"),
+    headline: getCapTag(xml, "headline"),
+    description: getCapTag(xml, "description"),
+    areaDesc: getCapTag(xml, "areaDesc")
+  };
+
+  const locationText = [
+    item.title,
+    cap.event,
+    cap.headline,
+    cap.description,
+    cap.areaDesc
+  ].join(" ");
+
+  const locationMatches = matchesMaharashtra(locationText);
 
   return {
-    timeClassification,
-    effectiveValid: Boolean(effective),
-    onsetValid: Boolean(onset),
-    expiresValid: Boolean(expires),
-    expiryPassed: expires !== null && expires <= now,
+    title: item.title || cap.headline || "(untitled)",
+    identifier: cap.identifier || item.id || "(missing ID)",
+    event: cap.event || "(missing event)",
+    areaDesc: cap.areaDesc || "(missing area)",
+    severity: cap.severity || "(missing severity)",
+    urgency: cap.urgency || "(missing urgency)",
+    certainty: cap.certainty || "(missing certainty)",
+    locationMatches,
+    timeClassification: classifyTime(cap),
+    locationClassification: locationMatches.length
+      ? `MAHARASHTRA MENTION — REVIEW (${locationMatches.join(", ")})`
+      : "NO MAHARASHTRA KEYWORD — LOCATION STILL UNCONFIRMED"
   };
 }
 
 async function main() {
-  console.log("=== SafeGuard Maharashtra Filter Dry Run ===");
+  console.log("=== SafeGuard Maharashtra Alert Dry Run ===");
+  console.log("Mode: READ-ONLY; no Firebase writes");
+  console.log(`Maximum CAP detail requests: ${MAX_CAP_CHECKS}`);
+  console.log(`Request concurrency: ${CONCURRENCY}`);
 
-  const rssXml = await fetchText(FEED_URL, "RSS");
-  const items =
-    rssXml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+  const rss = await fetchText(FEED_URL);
+  const items = parseRssItems(rss);
 
-  console.log("Total RSS items:", items.length);
+  console.log(`RSS items found: ${items.length}`);
 
-  if (items.length === 0) {
-    throw new Error("No RSS items found.");
+  const missingTitles = items.filter(item => !item.title).length;
+  const missingIds = items.filter(item => !item.id).length;
+  const missingLinks = items.filter(item => !item.link).length;
+
+  console.log(`Missing titles: ${missingTitles}`);
+  console.log(`Missing IDs: ${missingIds}`);
+  console.log(`Missing links: ${missingLinks}`);
+
+  const titleMatches = items.filter(item =>
+    matchesMaharashtra(item.title).length > 0
+  );
+
+  console.log(`RSS titles with Maharashtra keywords: ${titleMatches.length}`);
+
+  for (const item of titleMatches) {
+    console.log(
+      `TITLE MATCH: ${item.title} | ${matchesMaharashtra(item.title).join(", ")}`
+    );
   }
 
-  const alerts = items.map((item) => ({
-    title: getTag(item, "title"),
-    publishedAt: getTag(item, "pubDate"),
-    id: getTag(item, "guid"),
-    link: getTag(item, "link"),
-  }));
+  const candidates = items.filter(item => {
+    if (!item.link || !validCapUrl(item.link)) return false;
 
+    const titleMatch = matchesMaharashtra(item.title).length > 0;
+
+    // Only CAP-fetch items whose title suggests Maharashtra or whose title
+    // does not provide enough location information.
+    // This is a cautious prototype, not a complete geographic search.
+    return titleMatch || !item.title;
+  }).slice(0, MAX_CAP_CHECKS);
+
+  console.log(`CAP candidates selected: ${candidates.length}`);
   console.log(
-    "Missing titles:",
-    alerts.filter((a) => !a.title).length
-  );
-  console.log(
-    "Missing IDs:",
-    alerts.filter((a) => !a.id).length
-  );
-  console.log(
-    "Missing links:",
-    alerts.filter((a) => !a.link).length
+    "Note: title-only candidate selection can miss alerts whose titles omit locations."
   );
 
-  const candidates = alerts
-    .filter((alert) => {
-      if (!alert.title || !alert.id || !alert.link) return false;
+  const results = [];
+  const errors = [];
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < candidates.length) {
+      const index = nextIndex++;
+      const item = candidates[index];
 
       try {
-        const url = new URL(alert.link);
-        return (
-          url.protocol === "https:" &&
-          url.hostname === "sachet.ndma.gov.in" &&
-          url.pathname.includes("/cap_public_website/FetchXMLFile")
-        );
-      } catch {
-        return false;
+        const result = await checkCap(item);
+        results.push(result);
+
+        console.log("\n--- CAP RESULT ---");
+        console.log(`Title: ${result.title}`);
+        console.log(`ID: ${result.identifier}`);
+        console.log(`Event: ${result.event}`);
+        console.log(`Area: ${result.areaDesc}`);
+        console.log(`Severity: ${result.severity}`);
+        console.log(`Urgency: ${result.urgency}`);
+        console.log(`Certainty: ${result.certainty}`);
+        console.log(`Time: ${result.timeClassification}`);
+        console.log(`Location: ${result.locationClassification}`);
+      } catch (error) {
+        errors.push({ title: item.title, message: error.message });
+        console.log(`CAP FETCH ERROR: ${item.title} | ${error.message}`);
       }
-    })
-    .slice(0, MAX_ALERTS_TO_CHECK);
-
-  const now = Date.now();
-  const results = [];
-
-  for (const alert of candidates) {
-    console.log("\n----------------------------------------");
-    console.log("RSS ID:", alert.id);
-    console.log("Title:", alert.title);
-
-    try {
-      const capXml = await fetchText(alert.link, `CAP ${alert.id}`);
-
-      const cap = {
-        identifier: getCapTag(capXml, "identifier"),
-        sender: getCapTag(capXml, "sender"),
-        status: getCapTag(capXml, "status"),
-        messageType: getCapTag(capXml, "msgType"),
-        event: getCapTag(capXml, "event"),
-        urgency: getCapTag(capXml, "urgency"),
-        severity: getCapTag(capXml, "severity"),
-        certainty: getCapTag(capXml, "certainty"),
-        effective: getCapTag(capXml, "effective"),
-        onset: getCapTag(capXml, "onset"),
-        expires: getCapTag(capXml, "expires"),
-        headline: getCapTag(capXml, "headline"),
-        description: getCapTag(capXml, "description"),
-        instruction: getCapTag(capXml, "instruction"),
-        affectedArea: getCapTag(capXml, "areaDesc"),
-      };
-
-      const timing = validateCap(cap, now);
-      const location = classifyLocation(
-        cap.affectedArea,
-        cap.headline,
-        cap.description
-      );
-
-      const result = {
-        rssId: alert.id,
-        capIdentifier: cap.identifier,
-        sender: cap.sender,
-        event: cap.event,
-        severity: cap.severity,
-        urgency: cap.urgency,
-        certainty: cap.certainty,
-        status: cap.status,
-        messageType: cap.messageType,
-        effective: cap.effective,
-        onset: cap.onset,
-        expires: cap.expires,
-        affectedArea: cap.affectedArea,
-        ...timing,
-        ...location,
-      };
-
-      results.push(result);
-      console.log(JSON.stringify(result, null, 2));
-    } catch (error) {
-      const result = {
-        rssId: alert.id,
-        classification: "FETCH OR PARSE ERROR",
-        error: error.message,
-      };
-
-      results.push(result);
-      console.error(JSON.stringify(result, null, 2));
     }
   }
 
-  console.log("\n=== DRY-RUN SUMMARY ===");
-  console.log("CAP records checked:", results.length);
-  console.log(
-    "Maharashtra mentions — review:",
-    results.filter((r) =>
-      r.locationClassification === "MAHARASHTRA MENTION — REVIEW"
-    ).length
-  );
-  console.log(
-    "No Maharashtra match / unclear:",
-    results.filter((r) =>
-      r.locationClassification === "LOCATION UNCLEAR / NO MAHARASHTRA MATCH"
-    ).length
-  );
-  console.log(
-    "Expired:",
-    results.filter((r) => r.timeClassification === "EXPIRED").length
-  );
-  console.log(
-    "Fetch/parse errors:",
-    results.filter((r) => r.classification === "FETCH OR PARSE ERROR").length
+  await Promise.all(
+    Array.from(
+      { length: Math.min(CONCURRENCY, candidates.length) },
+      () => worker()
+    )
   );
 
-  console.log("\nDRY RUN ONLY: Firebase was not changed.");
-  console.log("No alerts were published or notifications sent.");
-  console.log(
-    "Location matching is text-based; it does not confirm geographic impact."
+  const matched = results.filter(result => result.locationMatches.length > 0);
+  const expired = results.filter(
+    result => result.timeClassification === "EXPIRED"
   );
+  const unclear = results.filter(result => result.locationMatches.length === 0);
+
+  console.log("\n=== SUMMARY ===");
+  console.log(`RSS items scanned: ${items.length}`);
+  console.log(`Title keyword matches: ${titleMatches.length}`);
+  console.log(`CAP details checked: ${results.length}`);
+  console.log(`CAP fetch errors: ${errors.length}`);
+  console.log(`Maharashtra mentions requiring review: ${matched.length}`);
+  console.log(`No Maharashtra keyword / location unconfirmed: ${unclear.length}`);
+  console.log(`Expired records: ${expired.length}`);
+  console.log("Firebase writes: 0");
+  console.log("Automatic alerts published: 0");
+  console.log("Dry run complete.");
 }
 
-main().catch((error) => {
-  console.error("Dry run failed:", error.message);
-  process.exit(1);
+main().catch(error => {
+  console.error("DRY RUN FAILED:", error.message);
+  process.exitCode = 1;
 });
