@@ -22,7 +22,10 @@ function decodeXml(value = "") {
 function getTag(xml, tag) {
   const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = xml.match(
-    new RegExp(`<${safe}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${safe}\\s*>`, "i")
+    new RegExp(
+      `<${safe}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${safe}\\s*>`,
+      "i"
+    )
   );
   return match ? decodeXml(match[1]) : "";
 }
@@ -39,7 +42,8 @@ function getCapTag(xml, tag) {
 }
 
 function parseRssItems(xml) {
-  const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+  const items =
+    xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
 
   return items.map(item => ({
     title: getTag(item, "title"),
@@ -51,9 +55,12 @@ function parseRssItems(xml) {
 function validCapUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
-    return url.protocol === "https:" &&
+
+    return (
+      url.protocol === "https:" &&
       url.hostname === CAP_HOST &&
-      url.pathname === CAP_PATH;
+      url.pathname === CAP_PATH
+    );
   } catch {
     return false;
   }
@@ -66,15 +73,16 @@ async function fetchText(url) {
     }
   });
 
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
   return response.text();
 }
 
 function parseReferences(value) {
   if (!value) return [];
 
-  // CAP references are commonly sender,identifier,sent triples,
-  // with multiple triples separated by whitespace.
   const parts = value.trim().split(/\s+/);
   const references = [];
 
@@ -91,6 +99,7 @@ function parseReferences(value) {
 
 function parseDate(value) {
   if (!value) return null;
+
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? null : timestamp;
 }
@@ -98,8 +107,14 @@ function parseDate(value) {
 function classifyTime(cap) {
   const type = cap.msgType.toLowerCase();
 
-  if (type === "cancel") return "CANCELLATION — REVIEW";
-  if (type === "update") return "UPDATE — REVIEW";
+  if (type === "cancel") {
+    return "CANCELLATION — REVIEW";
+  }
+
+  if (type === "update") {
+    return "UPDATE — REVIEW";
+  }
+
   if (type === "ack" || type === "error") {
     return `REVIEW — message type ${cap.msgType}`;
   }
@@ -112,23 +127,48 @@ function classifyTime(cap) {
     return `REVIEW — message type ${cap.msgType || "missing"}`;
   }
 
-  if (!cap.expires) return "REVIEW — expiry missing";
+  if (!cap.expires) {
+    return "REVIEW — expiry missing";
+  }
 
   const expiry = parseDate(cap.expires);
-  if (expiry === null) return "REVIEW — expiry invalid";
-  if (expiry <= Date.now()) return "EXPIRED";
 
-  if (!cap.effective) return "REVIEW — effective time missing";
+  if (expiry === null) {
+    return "REVIEW — expiry invalid";
+  }
+
+  if (expiry <= Date.now()) {
+    return "EXPIRED";
+  }
+
+  if (!cap.effective) {
+    return "REVIEW — effective time missing";
+  }
 
   const effective = parseDate(cap.effective);
-  if (effective === null) return "REVIEW — effective time invalid";
-  if (effective > Date.now()) return "FUTURE — not active yet";
+
+  if (effective === null) {
+    return "REVIEW — effective time invalid";
+  }
+
+  if (effective > Date.now()) {
+    return "FUTURE — not active yet";
+  }
 
   return "UNEXPIRED — manual review required";
 }
 
 async function checkCap(item) {
   const xml = await fetchText(item.link);
+
+  // TEMPORARY DIAGNOSTICS: inspect the actual CAP URL and references.
+  console.log("\nDEBUG CAP URL:", item.link);
+
+  const referencesSnippet =
+    xml.match(/.{0,100}references.{0,250}/is)?.[0] ||
+    "No references text found";
+
+  console.log("DEBUG REFERENCES XML:", referencesSnippet);
 
   const cap = {
     identifier: getCapTag(xml, "identifier") || item.id,
@@ -177,14 +217,15 @@ function analyzeBatch(records) {
       record.duplicateClassification =
         "DUPLICATE ID IN THIS BATCH — REVIEW";
     } else {
-      record.duplicateClassification = "ID FIRST SEEN IN THIS BATCH";
+      record.duplicateClassification =
+        "ID FIRST SEEN IN THIS BATCH";
     }
 
     if (seenMessages.has(messageKey)) {
-      record.messageClassification =
-        "DUPLICATE MESSAGE — REVIEW";
+      record.messageClassification = "DUPLICATE MESSAGE — REVIEW";
     } else {
-      record.messageClassification = "MESSAGE FIRST SEEN IN THIS BATCH";
+      record.messageClassification =
+        "MESSAGE FIRST SEEN IN THIS BATCH";
     }
 
     seenIds.add(duplicateKey);
@@ -192,13 +233,18 @@ function analyzeBatch(records) {
 
     if (record.timeClassification === "UPDATE — REVIEW") {
       record.messageClassification = "UPDATE — LINK TO ORIGINAL";
-    } else if (record.timeClassification === "CANCELLATION — REVIEW") {
-      record.messageClassification = "CANCELLATION — REVIEW ORIGINAL";
+    } else if (
+      record.timeClassification === "CANCELLATION — REVIEW"
+    ) {
+      record.messageClassification =
+        "CANCELLATION — REVIEW ORIGINAL";
     }
 
     if (record.references.length) {
       record.messageClassification +=
-        `; references ${record.references.map(ref => ref.identifier).join(", ")}`;
+        `; references ${record.references
+          .map(ref => ref.identifier)
+          .join(", ")}`;
     }
   }
 }
@@ -211,9 +257,11 @@ async function main() {
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
+
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
   );
+
   const candidates = validItems.slice(0, MAX_CAP_CHECKS);
 
   console.log(`RSS items found: ${items.length}`);
@@ -231,8 +279,14 @@ async function main() {
       try {
         results.push(await checkCap(item));
       } catch (error) {
-        errors.push({ title: item.title, error: error.message });
-        console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
+        errors.push({
+          title: item.title,
+          error: error.message
+        });
+
+        console.log(
+          `FETCH ERROR: ${item.title} | ${error.message}`
+        );
       }
     }
   }
@@ -266,7 +320,8 @@ async function main() {
     if (record.references.length) {
       for (const ref of record.references) {
         console.log(
-          `Reference: sender=${ref.sender}, id=${ref.identifier}, sent=${ref.sent}`
+          `Reference: sender=${ref.sender}, ` +
+          `id=${ref.identifier}, sent=${ref.sent}`
         );
       }
     } else {
@@ -275,10 +330,14 @@ async function main() {
   }
 
   const count = classification =>
-    results.filter(r => r.timeClassification === classification).length;
+    results.filter(
+      record => record.timeClassification === classification
+    ).length;
 
   const duplicates = results.filter(
-    r => r.duplicateClassification === "DUPLICATE ID IN THIS BATCH — REVIEW"
+    record =>
+      record.duplicateClassification ===
+      "DUPLICATE ID IN THIS BATCH — REVIEW"
   ).length;
 
   const updates = count("UPDATE — REVIEW");
