@@ -436,6 +436,45 @@ function runCapSelfTests() {
   console.log("SACHET requests: 0");
   console.log("Firebase writes: 0");
 
+  
+  // Test 0: publication-date sorting
+  const sortingItems = [
+    { id: "older", pubDate: "Tue, 13 Oct 2026 10:00:00 GMT" },
+    { id: "newer", pubDate: "Tue, 13 Oct 2026 12:00:00 GMT" },
+    { id: "missing", pubDate: "" },
+    { id: "invalid", pubDate: "not-a-date" }
+  ];
+
+  const sortedItems = sortingItems
+    .map((item, index) => ({
+      ...item,
+      publishedAt: Date.parse(item.pubDate),
+      originalIndex: index
+    }))
+    .sort((a, b) => {
+      const aTime = Number.isNaN(a.publishedAt)
+        ? -Infinity
+        : a.publishedAt;
+      const bTime = Number.isNaN(b.publishedAt)
+        ? -Infinity
+        : b.publishedAt;
+
+      return bTime - aTime || a.originalIndex - b.originalIndex;
+    });
+
+  check(
+    "Publication dates sort newest first",
+    sortedItems[0].id === "newer" &&
+      sortedItems[1].id === "older"
+  );
+
+  check(
+    "Missing and invalid dates sort last",
+    sortedItems[2].id === "missing" &&
+      sortedItems[3].id === "invalid"
+  );
+
+  
   // Test 1: duplicate ID
   const duplicates = [
     makeRecord(),
