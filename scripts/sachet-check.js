@@ -160,7 +160,8 @@ async function checkCap(item) {
     certainty: getCapTag(xml, "certainty"),
     effective: getCapTag(xml, "effective"),
     expires: getCapTag(xml, "expires"),
-    referencesText: getCapTag(xml, "references"),
+    referencesText:
+      xml.match(/<cap:references\b[^>]*>([\s\S]*?)<\/cap:references>/i)?.[1]?.trim() || "",
     headline: getCapTag(xml, "headline"),
     description: getCapTag(xml, "description"),
     areaDesc: getCapTag(xml, "areaDesc")
