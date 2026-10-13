@@ -1,6 +1,8 @@
 const FEED_URL =
   "https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml";
 
+const MAX_ALERTS_TO_CHECK = 5;
+
 function decodeXml(value = "") {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -22,30 +24,27 @@ function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Extract a normal RSS tag, including tags with attributes.
 function getTag(xml, tag) {
   const name = escapeRegex(tag);
-
-  const regex = new RegExp(
-    `<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}\\s*>`,
-    "i"
+  const match = xml.match(
+    new RegExp(
+      `<${name}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${name}\\s*>`,
+      "i"
+    )
   );
 
-  const match = xml.match(regex);
   return match ? decodeXml(match[1]) : "";
 }
 
-// Extract a CAP tag even when it has a namespace prefix,
-// such as cap:event or cap:severity.
 function getCapTag(xml, tag) {
   const name = escapeRegex(tag);
-
-  const regex = new RegExp(
-    `<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}\\s*>`,
-    "i"
+  const match = xml.match(
+    new RegExp(
+      `<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}\\s*>`,
+      "i"
+    )
   );
 
-  const match = xml.match(regex);
   return match ? decodeXml(match[1]) : "";
 }
 
@@ -67,22 +66,70 @@ async function fetchText(url, label) {
   return response.text();
 }
 
-async function main() {
-  console.log("=== SafeGuard SACHET Feed Check ===");
+function parseDate(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
 
-  // 1. Retrieve the RSS feed.
-  const xml = await fetchText(FEED_URL, "RSS");
-  const items =
-    xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+function validateCap(cap, now) {
+  const sent = parseDate(cap.sent);
+  const effective = parseDate(cap.effective);
+  const onset = parseDate(cap.onset);
+  const expires = parseDate(cap.expires);
 
-  console.log("Feed retrieved successfully");
-  console.log("Total RSS items:", items.length);
+  const status = cap.status.toLowerCase();
+  const messageType = cap.messageType.toLowerCase();
 
-  if (items.length === 0) {
-    throw new Error("No RSS items found. Check the feed format.");
+  let classification = "REVIEW";
+
+  if (status === "test" || status === "exercise" || status === "system") {
+    classification = "NON-PUBLIC TEST MESSAGE";
+  } else if (status !== "actual") {
+    classification = "REVIEW: UNKNOWN STATUS";
+  } else if (
+    ["cancel", "ack", "error"].includes(messageType)
+  ) {
+    classification = `SPECIAL MESSAGE: ${cap.messageType}`;
+  } else if (messageType !== "alert" && messageType !== "update") {
+    classification = "REVIEW: UNKNOWN MESSAGE TYPE";
+  } else if (!cap.identifier || !cap.event || !cap.affectedArea) {
+    classification = "REVIEW: REQUIRED FIELD MISSING";
+  } else if (!expires) {
+    classification = "REVIEW: INVALID OR MISSING EXPIRY";
+  } else if (expires <= now) {
+    classification = "EXPIRED";
+  } else if (effective && effective > now) {
+    classification = "FUTURE EFFECTIVE TIME";
+  } else if (onset && onset > now) {
+    classification = "UPCOMING";
+  } else {
+    classification = "UNEXPIRED — REVIEW FOR PUBLISHING";
   }
 
-  // 2. Extract basic details from each RSS item.
+  return {
+    classification,
+    sentValid: Boolean(sent),
+    effectiveValid: Boolean(effective),
+    onsetValid: Boolean(onset),
+    expiresValid: Boolean(expires),
+    expiryPassed: expires !== null && expires <= now,
+  };
+}
+
+async function main() {
+  console.log("=== SafeGuard Multi-Alert Dry Run ===");
+
+  const rssXml = await fetchText(FEED_URL, "RSS");
+  const items =
+    rssXml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+
+  console.log("Total RSS items:", items.length);
+
+  if (!items.length) {
+    throw new Error("No RSS items found.");
+  }
+
   const alerts = items.map((item) => ({
     title: getTag(item, "title"),
     publishedAt: getTag(item, "pubDate"),
@@ -90,77 +137,134 @@ async function main() {
     link: getTag(item, "link"),
   }));
 
-  const missingTitles = alerts.filter((alert) => !alert.title).length;
-  const missingIds = alerts.filter((alert) => !alert.id).length;
-  const missingLinks = alerts.filter((alert) => !alert.link).length;
+  const missingTitles = alerts.filter((a) => !a.title).length;
+  const missingIds = alerts.filter((a) => !a.id).length;
+  const missingLinks = alerts.filter((a) => !a.link).length;
 
   console.log("Missing titles:", missingTitles);
   console.log("Missing IDs:", missingIds);
-  console.log("Missing CAP links:", missingLinks);
+  console.log("Missing links:", missingLinks);
 
-  console.log("\n=== Sample RSS Alerts ===");
-  console.log(JSON.stringify(alerts.slice(0, 3), null, 2));
+  const candidates = alerts
+    .filter((alert) => {
+      if (!alert.link || !alert.id || !alert.title) return false;
 
-  // 3. Fetch the CAP XML for the first alert with a valid SACHET link.
-  const firstAlert = alerts.find((alert) => {
-    if (!alert.link) return false;
+      try {
+        const url = new URL(alert.link);
+        return (
+          url.protocol === "https:" &&
+          url.hostname === "sachet.ndma.gov.in" &&
+          url.pathname.includes("/cap_public_website/FetchXMLFile")
+        );
+      } catch {
+        return false;
+      }
+    })
+    .slice(0, MAX_ALERTS_TO_CHECK);
 
-    try {
-      const url = new URL(alert.link);
-      return (
-        url.protocol === "https:" &&
-        url.hostname === "sachet.ndma.gov.in" &&
-        url.pathname.includes("/cap_public_website/FetchXMLFile")
-      );
-    } catch {
-      return false;
-    }
-  });
-
-  if (!firstAlert) {
-    throw new Error("No valid SACHET CAP link was found.");
+  if (!candidates.length) {
+    throw new Error("No valid SACHET CAP links found.");
   }
 
-  console.log("\n=== Inspecting First CAP Alert ===");
-  console.log("RSS title:", firstAlert.title);
-  console.log("RSS ID:", firstAlert.id);
+  const now = Date.now();
+  const results = [];
 
-  const capXml = await fetchText(firstAlert.link, "CAP");
+  for (const alert of candidates) {
+    console.log("\n----------------------------------------");
+    console.log("RSS ID:", alert.id);
+    console.log("Title:", alert.title);
 
-  // 4. Extract CAP fields for inspection.
-  const capDetails = {
-    identifier: getCapTag(capXml, "identifier"),
-    sender: getCapTag(capXml, "sender"),
-    sent: getCapTag(capXml, "sent"),
-    status: getCapTag(capXml, "status"),
-    messageType: getCapTag(capXml, "msgType"),
-    event: getCapTag(capXml, "event"),
-    urgency: getCapTag(capXml, "urgency"),
-    severity: getCapTag(capXml, "severity"),
-    certainty: getCapTag(capXml, "certainty"),
-    effective: getCapTag(capXml, "effective"),
-    onset: getCapTag(capXml, "onset"),
-    expires: getCapTag(capXml, "expires"),
-    headline: getCapTag(capXml, "headline"),
-    description: getCapTag(capXml, "description"),
-    instruction: getCapTag(capXml, "instruction"),
-    affectedArea: getCapTag(capXml, "areaDesc"),
-  };
+    try {
+      const capXml = await fetchText(alert.link, `CAP ${alert.id}`);
 
-  console.log("\n=== CAP Alert Details ===");
-  console.log(JSON.stringify(capDetails, null, 2));
+      const cap = {
+        identifier: getCapTag(capXml, "identifier"),
+        sender: getCapTag(capXml, "sender"),
+        sent: getCapTag(capXml, "sent"),
+        status: getCapTag(capXml, "status"),
+        messageType: getCapTag(capXml, "msgType"),
+        event: getCapTag(capXml, "event"),
+        urgency: getCapTag(capXml, "urgency"),
+        severity: getCapTag(capXml, "severity"),
+        certainty: getCapTag(capXml, "certainty"),
+        effective: getCapTag(capXml, "effective"),
+        onset: getCapTag(capXml, "onset"),
+        expires: getCapTag(capXml, "expires"),
+        headline: getCapTag(capXml, "headline"),
+        description: getCapTag(capXml, "description"),
+        instruction: getCapTag(capXml, "instruction"),
+        affectedArea: getCapTag(capXml, "areaDesc"),
+      };
 
-  console.log("\n=== Validation Summary ===");
-  console.log("RSS items:", alerts.length);
-  console.log("First alert has title:", Boolean(firstAlert.title));
-  console.log("CAP identifier found:", Boolean(capDetails.identifier));
-  console.log("CAP event found:", Boolean(capDetails.event));
-  console.log("CAP severity found:", Boolean(capDetails.severity));
-  console.log("CAP expiry found:", Boolean(capDetails.expires));
-  console.log("\nRead-only inspection completed.");
+      const validation = validateCap(cap, now);
+
+      const result = {
+        rssId: alert.id,
+        capIdentifier: cap.identifier,
+        sender: cap.sender,
+        event: cap.event,
+        severity: cap.severity,
+        urgency: cap.urgency,
+        certainty: cap.certainty,
+        status: cap.status,
+        messageType: cap.messageType,
+        effective: cap.effective,
+        onset: cap.onset,
+        expires: cap.expires,
+        affectedArea: cap.affectedArea,
+        classification: validation.classification,
+        validation,
+      };
+
+      results.push(result);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      const result = {
+        rssId: alert.id,
+        title: alert.title,
+        classification: "FETCH OR PARSE ERROR",
+        error: error.message,
+      };
+
+      results.push(result);
+      console.error(JSON.stringify(result, null, 2));
+    }
+  }
+
+  console.log("\n=== DRY-RUN SUMMARY ===");
+  console.log("Checked:", results.length);
+  console.log(
+    "Expired:",
+    results.filter((r) => r.classification === "EXPIRED").length
+  );
+  console.log(
+    "Unexpired — review for publishing:",
+    results.filter((r) =>
+      r.classification === "UNEXPIRED — REVIEW FOR PUBLISHING"
+    ).length
+  );
+  console.log(
+    "Upcoming:",
+    results.filter((r) => r.classification === "UPCOMING").length
+  );
+  console.log(
+    "Special messages:",
+    results.filter((r) =>
+      r.classification.startsWith("SPECIAL MESSAGE")
+    ).length
+  );
+  console.log(
+    "Errors:",
+    results.filter((r) =>
+      r.classification === "FETCH OR PARSE ERROR"
+    ).length
+  );
+
+  console.log("\nDRY RUN ONLY: Firebase was not changed.");
+  console.log("No alerts were published or notifications sent.");
 }
 
 main().catch((error) => {
-  console.error("\nSACHET check failed:", error.message);
+  console.error("SACHET dry run failed:", error.message);
   process.exit(1);
 });
