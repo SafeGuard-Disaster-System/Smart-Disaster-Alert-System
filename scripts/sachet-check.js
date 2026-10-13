@@ -287,13 +287,102 @@ function createEmptyCapState() {
 }
 
 
+
 function applyCapMessageToState(state, record) {
   const nextState = JSON.parse(JSON.stringify(state));
-  const messageKey = `${record.sender}|${record.identifier}|${record.sent}`;
+  const messageKey =
+    `${record.sender}|${record.identifier}|${record.sent}`;
 
+  // Ignore messages already successfully processed.
   if (nextState.processedMessages[messageKey]) {
     return { state: nextState, action: "DUPLICATE" };
   }
+
+  const references = Array.isArray(record.references)
+    ? record.references
+    : [];
+
+  // Find the original alert using sender and identifier.
+  const original = references
+    .map(ref => `${ref.sender}|${ref.identifier}`)
+    .find(key => nextState.activeAlerts[key]);
+
+  const alertKey = `${record.sender}|${record.identifier}`;
+
+  // Cancellation: don't mark it processed if the original is unknown.
+  if (record.msgType === "Cancel") {
+    if (!original) {
+      return { state: nextState, action: "CANCELLATION_REVIEW" };
+    }
+
+    delete nextState.activeAlerts[original];
+
+    nextState.processedMessages[messageKey] = {
+      sender: record.sender,
+      identifier: record.identifier,
+      sent: record.sent,
+      msgType: record.msgType
+    };
+
+    return { state: nextState, action: "CANCELLED" };
+  }
+
+  // Update: don't mark it processed if the original is unknown.
+  if (record.msgType === "Update") {
+    if (!original) {
+      return { state: nextState, action: "UPDATE_REVIEW" };
+    }
+
+    if (record.timeClassification === "EXPIRED") {
+      delete nextState.activeAlerts[original];
+    } else {
+      nextState.activeAlerts[original] = {
+        ...nextState.activeAlerts[original],
+        ...record,
+        originalKey: original
+      };
+    }
+
+    nextState.processedMessages[messageKey] = {
+      sender: record.sender,
+      identifier: record.identifier,
+      sent: record.sent,
+      msgType: record.msgType
+    };
+
+    return {
+      state: nextState,
+      action: record.timeClassification === "EXPIRED"
+        ? "EXPIRED"
+        : "UPDATED"
+    };
+  }
+
+  // Expired messages must not become active alerts.
+  if (record.timeClassification === "EXPIRED") {
+    nextState.processedMessages[messageKey] = {
+      sender: record.sender,
+      identifier: record.identifier,
+      sent: record.sent,
+      msgType: record.msgType
+    };
+
+    return { state: nextState, action: "EXPIRED" };
+  }
+
+  // Only valid, unexpired Alert messages enter the review state.
+  if (
+    record.msgType !== "Alert" ||
+    record.timeClassification !==
+      "UNEXPIRED — manual review required"
+  ) {
+    return { state: nextState, action: "REVIEW" };
+  }
+
+  nextState.activeAlerts[alertKey] = {
+    ...record,
+    originalKey: alertKey
+  };
 
   nextState.processedMessages[messageKey] = {
     sender: record.sender,
@@ -302,65 +391,9 @@ function applyCapMessageToState(state, record) {
     msgType: record.msgType
   };
 
-  const references = Array.isArray(record.references)
-    ? record.references
-    : [];
-
-  const original = references
-    .map(ref => `${ref.sender}|${ref.identifier}`)
-    .find(key => nextState.activeAlerts[key]);
-
-  const alertKey = `${record.sender}|${record.identifier}`;
-
-  if (record.msgType === "Cancel") {
-    if (original) {
-      delete nextState.activeAlerts[original];
-    }
-    return {
-      state: nextState,
-      action: original ? "CANCELLED" : "CANCELLATION_REVIEW"
-    };
-  }
-
-  if (record.msgType === "Update") {
-    if (!original) {
-      return { state: nextState, action: "UPDATE_REVIEW" };
-    }
-
-    if (record.timeClassification === "EXPIRED") {
-      delete nextState.activeAlerts[original];
-      return { state: nextState, action: "EXPIRED" };
-    }
-
-    nextState.activeAlerts[original] = {
-      ...nextState.activeAlerts[original],
-      ...record,
-      originalKey: original
-    };
-
-    return { state: nextState, action: "UPDATED" };
-  }
-
-  
-  if (record.timeClassification === "EXPIRED") {
-    return { state: nextState, action: "EXPIRED" };
-  }
-
-  if (
-    record.msgType !== "Alert" ||
-    record.timeClassification !== "UNEXPIRED — manual review required"
-  ) {
-    return { state: nextState, action: "REVIEW" };
-  }
-
-
-  nextState.activeAlerts[alertKey] = {
-    ...record,
-    originalKey: alertKey
-  };
-
   return { state: nextState, action: "NEW_ALERT_REVIEW" };
 }
+
 
 function analyzeBatch(records) {
   const seenIds = new Set();
