@@ -396,6 +396,10 @@ function runLocationSelfTests() {
   }
 }
 
+function runCapSelfTests() {
+  const tests = [];
+  const check = (name, passed) => tests.push({ name, passed });
+
 function makeRecord(overrides = {}) {
   return {
     sender: "Test-Sender",
