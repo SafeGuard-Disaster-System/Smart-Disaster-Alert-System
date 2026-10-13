@@ -8,7 +8,7 @@ const CAP_PATH = "/cap_public_website/FetchXMLFile";
 const MAX_CAP_CHECKS = 30;
 const CONCURRENCY = 2;
 
-// Broad keyword screening only; not geographic verification.
+// Preliminary screening only. This does not verify geographic boundaries.
 const LOCAL_AREA_KEYWORDS = [
   "navi mumbai",
   "new mumbai",
@@ -23,8 +23,7 @@ const LOCAL_AREA_KEYWORDS = [
   "kopar khairane",
   "turbhe",
   "ulwe",
-  "kamothe",
-  "thane"
+  "kamothe"
 ];
 
 function decodeXml(value = "") {
@@ -132,13 +131,19 @@ function parseDate(value) {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
-function classifyLocation(area = "", title = "", description = "") {
-  const normalizedArea = area.trim().toLowerCase();
-  const text = `${area} ${title} ${description}`.toLowerCase();
+// --------------------------------------------------
+// IMPROVED LOCATION SCREENING
+// Uses the CAP area field, not just the description.
+// This is NOT geographic verification.
+// --------------------------------------------------
 
-  if (!text.trim()) {
-    return "NEEDS MANUAL REVIEW";
-  }
+function classifyLocation(area = "", title = "", description = "") {
+  const normalizedArea = String(area)
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[.,;()[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
   if (
     !normalizedArea ||
@@ -149,14 +154,19 @@ function classifyLocation(area = "", title = "", description = "") {
     return "NEEDS MANUAL REVIEW";
   }
 
-  const matched = LOCAL_AREA_KEYWORDS.some(keyword =>
-    text.includes(keyword)
-  );
+  // Match complete locality names to reduce accidental partial matches.
+  // Title and description are deliberately not used to confirm locality.
+  const containsAreaName = name => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`\\b${escaped}\\b`, "i");
+    return pattern.test(normalizedArea);
+  };
 
-  if (matched) {
+  if (LOCAL_AREA_KEYWORDS.some(containsAreaName)) {
     return "POSSIBLE LOCAL MATCH — VERIFY";
   }
 
+  // "Thane" alone is not proof that an alert affects Navi Mumbai.
   return "NO LOCAL KEYWORD MATCH";
 }
 
@@ -332,6 +342,32 @@ function runLocationSelfTests() {
       name: "Isolated places",
       area: "Isolated places",
       expected: "NEEDS MANUAL REVIEW"
+    },
+    {
+      name: "Local name only in description",
+      area: "Bihar",
+      description: "Flood warning mentions Navi Mumbai",
+      expected: "NO LOCAL KEYWORD MATCH"
+    },
+    {
+      name: "Thane alone",
+      area: "Thane",
+      expected: "NO LOCAL KEYWORD MATCH"
+    },
+    {
+      name: "Vague area",
+      area: "Your district",
+      expected: "NEEDS MANUAL REVIEW"
+    },
+    {
+      name: "Nearby localities in area",
+      area: "Kalamboli, Panvel",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Unrelated place containing a short name",
+      area: "An unrelated district",
+      expected: "NO LOCAL KEYWORD MATCH"
     }
   ];
 
@@ -343,7 +379,12 @@ function runLocationSelfTests() {
   console.log("Firebase writes: 0");
 
   for (const test of tests) {
-    const actual = classifyLocation(test.area, "", "");
+    const actual = classifyLocation(
+      test.area,
+      test.title || "",
+      test.description || ""
+    );
+
     const passed = actual === test.expected;
 
     console.log(`${passed ? "PASS" : "FAIL"}: ${test.name}`);
