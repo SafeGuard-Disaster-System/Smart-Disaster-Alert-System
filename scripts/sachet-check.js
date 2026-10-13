@@ -8,6 +8,25 @@ const CAP_PATH = "/cap_public_website/FetchXMLFile";
 const MAX_CAP_CHECKS = 30;
 const CONCURRENCY = 2;
 
+// Broad keyword screening only. A match does not prove geographic coverage.
+const LOCAL_AREA_KEYWORDS = [
+  "navi mumbai",
+  "new mumbai",
+  "kalamboli",
+  "kharghar",
+  "panvel",
+  "vashi",
+  "nerul",
+  "belapur",
+  "airoli",
+  "ghansoli",
+  "kopar khairane",
+  "turbhe",
+  "ulwe",
+  "kamothe",
+  "thane"
+];
+
 function decodeXml(value = "") {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
@@ -21,6 +40,7 @@ function decodeXml(value = "") {
 
 function getTag(xml, tag) {
   const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
   const match = xml.match(
     new RegExp(
       `<${safe}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${safe}\\s*>`,
@@ -84,8 +104,6 @@ async function fetchText(url) {
   return response.text();
 }
 
-// CAP references use comma-separated fields:
-// sender,identifier,sent-time
 function parseReferences(value) {
   if (!value) return [];
 
@@ -112,6 +130,36 @@ function parseDate(value) {
 
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function classifyLocation(area = "", title = "", description = "") {
+  const normalizedArea = area.trim().toLowerCase();
+  const text = `${area} ${title} ${description}`.toLowerCase();
+
+  if (!text.trim()) {
+    return "NEEDS MANUAL REVIEW";
+  }
+
+  // Vague area descriptions cannot establish geographic coverage.
+  if (
+    !normalizedArea ||
+    /isolated places|your area|your district|your region/i.test(
+      normalizedArea
+    )
+  ) {
+    return "NEEDS MANUAL REVIEW";
+  }
+
+  // Only a possible match; this is not a geographic boundary test.
+  const matched = LOCAL_AREA_KEYWORDS.some(keyword =>
+    text.includes(keyword)
+  );
+
+  if (matched) {
+    return "POSSIBLE LOCAL MATCH — VERIFY";
+  }
+
+  return "NO LOCAL KEYWORD MATCH";
 }
 
 function classifyTime(cap) {
@@ -183,11 +231,7 @@ async function checkCap(item) {
     certainty: getCapTag(xml, "certainty"),
     effective: getCapTag(xml, "effective"),
     expires: getCapTag(xml, "expires"),
-
-    // Read references directly from the CAP XML.
-    referencesText:
-      getCapTag(xml, "references"),
-
+    referencesText: getCapTag(xml, "references"),
     headline: getCapTag(xml, "headline"),
     description: getCapTag(xml, "description"),
     areaDesc: getCapTag(xml, "areaDesc")
@@ -208,6 +252,11 @@ async function checkCap(item) {
     effective: cap.effective,
     expires: cap.expires,
     references: parseReferences(cap.referencesText),
+    locationClassification: classifyLocation(
+      cap.areaDesc,
+      cap.headline || item.title,
+      cap.description
+    ),
     timeClassification: classifyTime(cap)
   };
 }
@@ -229,11 +278,9 @@ function analyzeBatch(records) {
     }
 
     if (seenMessages.has(messageKey)) {
-      record.messageClassification =
-        "DUPLICATE MESSAGE — REVIEW";
+      record.messageClassification = "DUPLICATE MESSAGE — REVIEW";
     } else {
-      record.messageClassification =
-        "MESSAGE FIRST SEEN IN THIS BATCH";
+      record.messageClassification = "MESSAGE FIRST SEEN IN THIS BATCH";
     }
 
     seenIds.add(duplicateKey);
@@ -318,6 +365,7 @@ async function main() {
     console.log(`Status: ${record.status}`);
     console.log(`Event: ${record.event}`);
     console.log(`Area: ${record.area}`);
+    console.log(`Location check: ${record.locationClassification}`);
     console.log(`Severity: ${record.severity}`);
     console.log(`Urgency: ${record.urgency}`);
     console.log(`Certainty: ${record.certainty}`);
@@ -342,6 +390,11 @@ async function main() {
       record => record.timeClassification === classification
     ).length;
 
+  const locationCount = classification =>
+    results.filter(
+      record => record.locationClassification === classification
+    ).length;
+
   const duplicates = results.filter(
     record =>
       record.duplicateClassification ===
@@ -358,9 +411,19 @@ async function main() {
     `Cancellation messages: ${count("CANCELLATION — REVIEW")}`
   );
   console.log(`Expired alerts: ${count("EXPIRED")}`);
+  console.log(
+    `Possible local matches: ${locationCount("POSSIBLE LOCAL MATCH — VERIFY")}`
+  );
+  console.log(
+    `No local keyword match: ${locationCount("NO LOCAL KEYWORD MATCH")}`
+  );
+  console.log(
+    `Location manual review: ${locationCount("NEEDS MANUAL REVIEW")}`
+  );
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
   console.log("Note: duplicate detection covers this batch only.");
+  console.log("Location results are keyword screening, not geographic verification.");
   console.log("Dry run complete.");
 }
 
