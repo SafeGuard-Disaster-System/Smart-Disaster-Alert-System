@@ -679,14 +679,16 @@ function runCapSelfTests() {
   });
 
   // Test: update with unknown reference requires review
-  const unknownUpdateResult = applyCapMessageToState(
-    createEmptyCapState(),
+  
+  const retryUpdateResult = applyCapMessageToState(
+    retryUpdateOriginal.state,
     {
       sender: "Test-Sender",
       identifier: "CAP-UNKNOWN-UPDATE",
       sent: "2026-10-13T10:10:00Z",
       msgType: "Update",
       timeClassification: "UPDATE — REVIEW",
+      event: "Severe Rain",
       references: [{
         sender: "Test-Sender",
         identifier: "CAP-NOT-FOUND",
@@ -695,12 +697,109 @@ function runCapSelfTests() {
     }
   );
 
+
   tests.push({
     name: "Update with unknown reference requires review",
     passed:
       unknownUpdateResult.action === "UPDATE_REVIEW" &&
       Object.keys(unknownUpdateResult.state.activeAlerts).length === 0
   });
+
+  
+  // Test: unknown update is not marked as processed
+  const unknownUpdateKey =
+    "Test-Sender|CAP-UNKNOWN-UPDATE|2026-10-13T10:10:00Z";
+
+  check(
+    "Unknown update remains retryable",
+    !unknownUpdateResult.state.processedMessages[unknownUpdateKey]
+  );
+
+  // Test: unknown cancellation is not marked as processed
+  const unknownCancel = makeRecord({
+    identifier: "CAP-UNKNOWN-CANCEL",
+    sent: "2026-10-13T10:15:00Z",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: "Test-Sender",
+      identifier: "CAP-NOT-FOUND",
+      sent: "2026-10-13T09:00:00Z"
+    }]
+  });
+
+  const unknownCancelResult = applyCapMessageToState(
+    createEmptyCapState(),
+    unknownCancel
+  );
+
+  const unknownCancelKey =
+    `${unknownCancel.sender}|${unknownCancel.identifier}|${unknownCancel.sent}`;
+
+  check(
+    "Unknown cancellation remains retryable",
+    unknownCancelResult.action === "CANCELLATION_REVIEW" &&
+      !unknownCancelResult.state.processedMessages[unknownCancelKey]
+  );
+
+  // Test: update succeeds when its original becomes available
+  const retryUpdateOriginal = applyCapMessageToState(
+    unknownUpdateResult.state,
+    makeRecord({
+      identifier: "CAP-NOT-FOUND",
+      sent: "2026-10-13T09:00:00Z",
+      event: "Heavy Rain"
+    })
+  );
+
+  const retryUpdateResult = applyCapMessageToState(
+    retryUpdateOriginal.state,
+    {
+      ...unknownUpdateResult.state.activeAlerts["unused"],
+      sender: "Test-Sender",
+      identifier: "CAP-UNKNOWN-UPDATE",
+      sent: "2026-10-13T10:10:00Z",
+      msgType: "Update",
+      timeClassification: "UPDATE — REVIEW",
+      event: "Severe Rain",
+      references: [{
+        sender: "Test-Sender",
+        identifier: "CAP-NOT-FOUND",
+        sent: "2026-10-13T09:00:00Z"
+      }]
+    }
+  );
+
+  check(
+    "Unknown update succeeds on retry",
+    retryUpdateResult.action === "UPDATED" &&
+      retryUpdateResult.state.activeAlerts[
+        "Test-Sender|CAP-NOT-FOUND"
+      ]?.event === "Severe Rain"
+  );
+
+  // Test: cancellation succeeds when its original becomes available
+  const retryCancelOriginal = applyCapMessageToState(
+    unknownCancelResult.state,
+    makeRecord({
+      identifier: "CAP-NOT-FOUND",
+      sent: "2026-10-13T09:00:00Z"
+    })
+  );
+
+  const retryCancelResult = applyCapMessageToState(
+    retryCancelOriginal.state,
+    unknownCancel
+  );
+
+  check(
+    "Unknown cancellation succeeds on retry",
+    retryCancelResult.action === "CANCELLED" &&
+      !retryCancelResult.state.activeAlerts[
+        "Test-Sender|CAP-NOT-FOUND"
+      ]
+  );
+
 
 
   function makeRecord(overrides = {}) {
