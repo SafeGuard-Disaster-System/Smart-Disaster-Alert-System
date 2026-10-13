@@ -8,7 +8,7 @@ const CAP_PATH = "/cap_public_website/FetchXMLFile";
 const MAX_CAP_CHECKS = 30;
 const CONCURRENCY = 2;
 
-// Broad keyword screening only. A match does not prove geographic coverage.
+// Broad keyword screening only; not geographic verification.
 const LOCAL_AREA_KEYWORDS = [
   "navi mumbai",
   "new mumbai",
@@ -140,7 +140,6 @@ function classifyLocation(area = "", title = "", description = "") {
     return "NEEDS MANUAL REVIEW";
   }
 
-  // Vague area descriptions cannot establish geographic coverage.
   if (
     !normalizedArea ||
     /isolated places|your area|your district|your region/i.test(
@@ -150,7 +149,6 @@ function classifyLocation(area = "", title = "", description = "") {
     return "NEEDS MANUAL REVIEW";
   }
 
-  // Only a possible match; this is not a geographic boundary test.
   const matched = LOCAL_AREA_KEYWORDS.some(keyword =>
     text.includes(keyword)
   );
@@ -163,7 +161,7 @@ function classifyLocation(area = "", title = "", description = "") {
 }
 
 function classifyTime(cap) {
-  const type = cap.msgType.toLowerCase();
+  const type = (cap.msgType || "").toLowerCase();
 
   if (type === "cancel") {
     return "CANCELLATION — REVIEW";
@@ -304,6 +302,207 @@ function analyzeBatch(records) {
   }
 }
 
+// --------------------------------------------------
+// LOCATION SELF-TESTS: synthetic data only
+// --------------------------------------------------
+
+function runLocationSelfTests() {
+  const tests = [
+    {
+      name: "Navi Mumbai",
+      area: "Navi Mumbai",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Kalamboli",
+      area: "Kalamboli",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Panvel",
+      area: "Panvel",
+      expected: "POSSIBLE LOCAL MATCH — VERIFY"
+    },
+    {
+      name: "Bihar",
+      area: "Bihar",
+      expected: "NO LOCAL KEYWORD MATCH"
+    },
+    {
+      name: "Isolated places",
+      area: "Isolated places",
+      expected: "NEEDS MANUAL REVIEW"
+    }
+  ];
+
+  let failures = 0;
+
+  console.log("=== SafeGuard Location Self-Tests ===");
+  console.log("Mode: LOCAL TESTS ONLY");
+  console.log("SACHET requests: 0");
+  console.log("Firebase writes: 0");
+
+  for (const test of tests) {
+    const actual = classifyLocation(test.area, "", "");
+    const passed = actual === test.expected;
+
+    console.log(`${passed ? "PASS" : "FAIL"}: ${test.name}`);
+    console.log(`  Expected: ${test.expected}`);
+    console.log(`  Actual:   ${actual}`);
+
+    if (!passed) failures++;
+  }
+
+  console.log(
+    `Results: ${tests.length - failures}/${tests.length} passed`
+  );
+
+  if (failures > 0) {
+    process.exitCode = 1;
+  } else {
+    console.log("All location tests passed.");
+  }
+}
+
+// --------------------------------------------------
+// SYNTHETIC CAP TESTS: no network or Firebase access
+// --------------------------------------------------
+
+function runCapSelfTests() {
+  const tests = [];
+
+  function makeRecord(overrides = {}) {
+    return {
+      sender: "Test-Sender",
+      identifier: "CAP-001",
+      sent: "2026-10-13T10:00:00Z",
+      msgType: "Alert",
+      timeClassification: "UNEXPIRED — manual review required",
+      references: [],
+      ...overrides
+    };
+  }
+
+  function check(name, passed) {
+    tests.push({ name, passed });
+  }
+
+  console.log("=== SafeGuard Synthetic CAP Tests ===");
+  console.log("Mode: LOCAL TESTS ONLY");
+  console.log("SACHET requests: 0");
+  console.log("Firebase writes: 0");
+
+  // Test 1: duplicate ID
+  const duplicates = [
+    makeRecord(),
+    makeRecord({ sent: "2026-10-13T10:05:00Z" })
+  ];
+
+  analyzeBatch(duplicates);
+
+  check(
+    "Repeated ID is detected",
+    duplicates[1].duplicateClassification ===
+      "DUPLICATE ID IN THIS BATCH — REVIEW"
+  );
+
+  // Test 2: update references its original
+  const update = makeRecord({
+    identifier: "CAP-002",
+    msgType: "Update",
+    timeClassification: "UPDATE — REVIEW",
+    references: [
+      {
+        sender: "Test-Sender",
+        identifier: "CAP-ORIGINAL",
+        sent: "2026-10-13T09:00:00Z"
+      }
+    ]
+  });
+
+  analyzeBatch([update]);
+
+  check(
+    "Update links to original",
+    update.messageClassification.includes("UPDATE — LINK TO ORIGINAL") &&
+      update.messageClassification.includes("CAP-ORIGINAL")
+  );
+
+  // Test 3: cancellation references its original
+  const cancellation = makeRecord({
+    identifier: "CAP-003",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [
+      {
+        sender: "Test-Sender",
+        identifier: "CAP-ORIGINAL",
+        sent: "2026-10-13T09:00:00Z"
+      }
+    ]
+  });
+
+  analyzeBatch([cancellation]);
+
+  check(
+    "Cancellation links to original",
+    cancellation.messageClassification.includes(
+      "CANCELLATION — REVIEW ORIGINAL"
+    ) &&
+      cancellation.messageClassification.includes("CAP-ORIGINAL")
+  );
+
+  // Test 4: expired alert
+  const now = Date.now();
+
+  const expired = {
+    msgType: "Alert",
+    status: "Actual",
+    effective: new Date(now - 7200000).toISOString(),
+    expires: new Date(now - 3600000).toISOString()
+  };
+
+  check(
+    "Expired alert is classified correctly",
+    classifyTime(expired) === "EXPIRED"
+  );
+
+  // Test 5: future alert
+  const future = {
+    msgType: "Alert",
+    status: "Actual",
+    effective: new Date(now + 3600000).toISOString(),
+    expires: new Date(now + 7200000).toISOString()
+  };
+
+  check(
+    "Future alert is not marked active",
+    classifyTime(future) === "FUTURE — not active yet"
+  );
+
+  let failures = 0;
+
+  for (const test of tests) {
+    console.log(`${test.passed ? "PASS" : "FAIL"}: ${test.name}`);
+
+    if (!test.passed) failures++;
+  }
+
+  console.log(
+    `Results: ${tests.length - failures}/${tests.length} passed`
+  );
+
+  if (failures > 0) {
+    process.exitCode = 1;
+  } else {
+    console.log("All synthetic CAP tests passed.");
+  }
+}
+
+// --------------------------------------------------
+// NORMAL SACHET DRY RUN: read-only
+// --------------------------------------------------
+
 async function main() {
   console.log("=== SafeGuard CAP Message Handling Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
@@ -398,6 +597,49 @@ async function main() {
   const duplicates = results.filter(
     record =>
       record.duplicateClassification ===
+      "DUPLICATE ID IN THIS BATCH — REVIEW"
+  ).length;
+
+  console.log("\n=== SUMMARY ===");
+  console.log(`RSS items scanned: ${items.length}`);
+  console.log(`CAP records checked: ${results.length}`);
+  console.log(`Fetch errors: ${errors.length}`);
+  console.log(`Repeated IDs in batch: ${duplicates}`);
+  console.log(`Update messages: ${count("UPDATE — REVIEW")}`);
+  console.log(
+    `Cancellation messages: ${count("CANCELLATION — REVIEW")}`
+  );
+  console.log(`Expired alerts: ${count("EXPIRED")}`);
+  console.log(
+    `Possible local matches: ${locationCount("POSSIBLE LOCAL MATCH — VERIFY")}`
+  );
+  console.log(
+    `No local keyword match: ${locationCount("NO LOCAL KEYWORD MATCH")}`
+  );
+  console.log(
+    `Location manual review: ${locationCount("NEEDS MANUAL REVIEW")}`
+  );
+  console.log("Firebase writes: 0");
+  console.log("Automatic alerts published: 0");
+  console.log("Note: duplicate detection covers this batch only.");
+  console.log(
+    "Location results are keyword screening, not geographic verification."
+  );
+  console.log("Dry run complete.");
+}
+
+// Choose exactly one mode. Tests never call main().
+if (process.argv.includes("--test-location")) {
+  runLocationSelfTests();
+} else if (process.argv.includes("--test-cap")) {
+  runCapSelfTests();
+} else {
+  main().catch(error => {
+    console.error("DRY RUN FAILED:", error.message);
+    process.exitCode = 1;
+  });
+}
+ord.duplicateClassification ===
       "DUPLICATE ID IN THIS BATCH — REVIEW"
   ).length;
 
