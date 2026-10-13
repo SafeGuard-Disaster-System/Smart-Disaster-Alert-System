@@ -34,7 +34,7 @@ function getCapTag(xml, tag) {
   const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = xml.match(
     new RegExp(
-      `<(?:\\w+:)?${safe}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:\\w+:)?${safe}\\s*>`,
+      `<(?:[\\w.-]+:)?${safe}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${safe}\\s*>`,
       "i"
     )
   );
@@ -55,7 +55,6 @@ function parseRssItems(xml) {
 function validCapUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
-
     return (
       url.protocol === "https:" &&
       url.hostname === CAP_HOST &&
@@ -107,13 +106,8 @@ function parseDate(value) {
 function classifyTime(cap) {
   const type = cap.msgType.toLowerCase();
 
-  if (type === "cancel") {
-    return "CANCELLATION — REVIEW";
-  }
-
-  if (type === "update") {
-    return "UPDATE — REVIEW";
-  }
+  if (type === "cancel") return "CANCELLATION — REVIEW";
+  if (type === "update") return "UPDATE — REVIEW";
 
   if (type === "ack" || type === "error") {
     return `REVIEW — message type ${cap.msgType}`;
@@ -127,33 +121,17 @@ function classifyTime(cap) {
     return `REVIEW — message type ${cap.msgType || "missing"}`;
   }
 
-  if (!cap.expires) {
-    return "REVIEW — expiry missing";
-  }
+  if (!cap.expires) return "REVIEW — expiry missing";
 
   const expiry = parseDate(cap.expires);
+  if (expiry === null) return "REVIEW — expiry invalid";
+  if (expiry <= Date.now()) return "EXPIRED";
 
-  if (expiry === null) {
-    return "REVIEW — expiry invalid";
-  }
-
-  if (expiry <= Date.now()) {
-    return "EXPIRED";
-  }
-
-  if (!cap.effective) {
-    return "REVIEW — effective time missing";
-  }
+  if (!cap.effective) return "REVIEW — effective time missing";
 
   const effective = parseDate(cap.effective);
-
-  if (effective === null) {
-    return "REVIEW — effective time invalid";
-  }
-
-  if (effective > Date.now()) {
-    return "FUTURE — not active yet";
-  }
+  if (effective === null) return "REVIEW — effective time invalid";
+  if (effective > Date.now()) return "FUTURE — not active yet";
 
   return "UNEXPIRED — manual review required";
 }
@@ -161,7 +139,7 @@ function classifyTime(cap) {
 async function checkCap(item) {
   const xml = await fetchText(item.link);
 
-  // TEMPORARY DIAGNOSTICS: inspect the actual CAP URL and references.
+  // Temporary diagnostics to inspect actual CAP XML references.
   console.log("\nDEBUG CAP URL:", item.link);
 
   const referencesSnippet =
@@ -257,11 +235,9 @@ async function main() {
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
-
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
   );
-
   const candidates = validItems.slice(0, MAX_CAP_CHECKS);
 
   console.log(`RSS items found: ${items.length}`);
@@ -283,7 +259,6 @@ async function main() {
           title: item.title,
           error: error.message
         });
-
         console.log(
           `FETCH ERROR: ${item.title} | ${error.message}`
         );
@@ -340,18 +315,16 @@ async function main() {
       "DUPLICATE ID IN THIS BATCH — REVIEW"
   ).length;
 
-  const updates = count("UPDATE — REVIEW");
-  const cancellations = count("CANCELLATION — REVIEW");
-  const expired = count("EXPIRED");
-
   console.log("\n=== SUMMARY ===");
   console.log(`RSS items scanned: ${items.length}`);
   console.log(`CAP records checked: ${results.length}`);
   console.log(`Fetch errors: ${errors.length}`);
   console.log(`Repeated IDs in batch: ${duplicates}`);
-  console.log(`Update messages: ${updates}`);
-  console.log(`Cancellation messages: ${cancellations}`);
-  console.log(`Expired alerts: ${expired}`);
+  console.log(`Update messages: ${count("UPDATE — REVIEW")}`);
+  console.log(
+    `Cancellation messages: ${count("CANCELLATION — REVIEW")}`
+  );
+  console.log(`Expired alerts: ${count("EXPIRED")}`);
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
   console.log("Note: duplicate detection covers this batch only.");
