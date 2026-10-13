@@ -21,5 +21,5 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Fetch SACHET disaster feed
-        run: node -e "fetch('https://sachet.ndma.gov.in/cap_public_website/rss/rss_india.xml').then(async r => { console.log('HTTP status:', r.status); if (!r.ok) throw new Error('Feed request failed'); const t = await r.text(); const n = (t.match(/<item(?:\s|>)/g) || []).length; console.log('Feed retrieved successfully'); console.log('RSS items found:', n); if (n === 0) throw new Error('No RSS items found; inspect the feed format'); }).catch(e => { console.error(e); process.exit(1); })"
+      - name: Parse SACHET disaster feed
+        run: node scripts/sachet-check.js
