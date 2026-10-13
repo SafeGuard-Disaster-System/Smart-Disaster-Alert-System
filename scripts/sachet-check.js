@@ -5,8 +5,8 @@ const FEED_URL =
 const CAP_HOST = "sachet.ndma.gov.in";
 const CAP_PATH = "/cap_public_website/FetchXMLFile";
 
-// Inspect a small sample first; this is not a complete feed scan.
-const MAX_CAP_CHECKS = 10;
+// Controlled sample; increase only after reviewing results.
+const MAX_CAP_CHECKS = 30;
 const CONCURRENCY = 2;
 
 const MAHARASHTRA_TERMS = [
@@ -28,8 +28,6 @@ const MAHARASHTRA_TERMS = [
   "ulhasnagar", "badlapur", "panvel", "पनवेल", "vasai", "virar"
 ];
 
-// These state names help confirm a location only when explicitly present.
-// This list is not an exhaustive geographic database.
 const OTHER_STATE_TERMS = [
   "andhra pradesh", "आंध्र प्रदेश", "bihar", "बिहार",
   "uttar pradesh", "उत्तर प्रदेश", "uttarakhand", "उत्तराखंड",
@@ -39,10 +37,10 @@ const OTHER_STATE_TERMS = [
   "madhya pradesh", "मध्य प्रदेश", "goa", "गोवा",
   "west bengal", "पश्चिम बंगाल", "odisha", "ओडिशा",
   "assam", "असम", "punjab", "पंजाब", "haryana", "हरियाणा",
-  "himachal pradesh", "हिमाचल प्रदेश",
-  "jharkhand", "झारखंड", "chhattisgarh", "छत्तीसगढ़",
-  "manipur", "meghalaya", "mizoram", "nagaland", "tripura",
-  "sikkim", "arunachal pradesh"
+  "himachal pradesh", "हिमाचल प्रदेश", "jharkhand", "झारखंड",
+  "chhattisgarh", "छत्तीसगढ़", "manipur", "meghalaya",
+  "mizoram", "nagaland", "tripura", "sikkim", "arunachal pradesh",
+  "puducherry", "पुदुचेरी"
 ];
 
 function decodeXml(value = "") {
@@ -85,6 +83,33 @@ function findTerms(text, terms) {
   });
 }
 
+function classifyLocation(text) {
+  const maharashtra = findTerms(text, MAHARASHTRA_TERMS);
+  const otherStates = findTerms(text, OTHER_STATE_TERMS);
+
+  if (maharashtra.length) {
+    return {
+      classification: "MAHARASHTRA KEYWORD — REVIEW",
+      maharashtra,
+      otherStates
+    };
+  }
+
+  if (otherStates.length) {
+    return {
+      classification: "OTHER STATE KEYWORD — REVIEW",
+      maharashtra,
+      otherStates
+    };
+  }
+
+  return {
+    classification: "LOCATION UNCLEAR",
+    maharashtra,
+    otherStates
+  };
+}
+
 function parseDate(value) {
   if (!value) return null;
   const timestamp = Date.parse(value);
@@ -93,19 +118,16 @@ function parseDate(value) {
 
 function classifyTime(cap) {
   const now = Date.now();
-
-  if (cap.status && cap.status.toLowerCase() !== "actual") {
-    return `REVIEW — status ${cap.status}`;
-  }
-
   const type = cap.msgType.toLowerCase();
 
-  if (["cancel", "ack", "error"].includes(type)) {
+  if (type === "cancel") return "CANCEL MESSAGE — REVIEW";
+  if (type === "update") return "UPDATE MESSAGE — REVIEW";
+  if (["ack", "error"].includes(type)) {
     return `REVIEW — message type ${cap.msgType}`;
   }
 
-  if (type === "update") {
-    return "REVIEW — update to an existing alert";
+  if (cap.status && cap.status.toLowerCase() !== "actual") {
+    return `REVIEW — status ${cap.status}`;
   }
 
   if (type !== "alert") {
@@ -125,33 +147,6 @@ function classifyTime(cap) {
   if (effective > now) return "FUTURE — not active yet";
 
   return "UNEXPIRED — manual review required";
-}
-
-function classifyLocation(text) {
-  const maharashtraMatches = findTerms(text, MAHARASHTRA_TERMS);
-  const otherStateMatches = findTerms(text, OTHER_STATE_TERMS);
-
-  if (maharashtraMatches.length > 0) {
-    return {
-      classification: "MAHARASHTRA MATCH — REVIEW",
-      maharashtraMatches,
-      otherStateMatches
-    };
-  }
-
-  if (otherStateMatches.length > 0) {
-    return {
-      classification: "OTHER STATE MENTION — REVIEW",
-      maharashtraMatches,
-      otherStateMatches
-    };
-  }
-
-  return {
-    classification: "LOCATION UNCLEAR",
-    maharashtraMatches,
-    otherStateMatches
-  };
 }
 
 async function fetchText(url) {
@@ -197,46 +192,62 @@ async function checkCap(item) {
     severity: getCapTag(xml, "severity"),
     urgency: getCapTag(xml, "urgency"),
     certainty: getCapTag(xml, "certainty"),
+    sent: getCapTag(xml, "sent"),
     effective: getCapTag(xml, "effective"),
+    onset: getCapTag(xml, "onset"),
     expires: getCapTag(xml, "expires"),
+    references: getCapTag(xml, "references"),
     headline: getCapTag(xml, "headline"),
     description: getCapTag(xml, "description"),
+    instruction: getCapTag(xml, "instruction"),
     areaDesc: getCapTag(xml, "areaDesc")
   };
 
-  const locationText = [
-    item.title, cap.event, cap.headline,
-    cap.description, cap.areaDesc
+  const searchableText = [
+    item.title,
+    cap.event,
+    cap.headline,
+    cap.description,
+    cap.instruction,
+    cap.areaDesc
   ].join(" ");
 
-  const location = classifyLocation(locationText);
+  const location = classifyLocation(searchableText);
 
   return {
     title: item.title || cap.headline || "(untitled)",
     identifier: cap.identifier || item.id || "(missing ID)",
+    references: cap.references || "(none provided)",
     event: cap.event || "(missing event)",
     area: cap.areaDesc || "(missing area)",
     severity: cap.severity || "(missing severity)",
     urgency: cap.urgency || "(missing urgency)",
     certainty: cap.certainty || "(missing certainty)",
+    sent: cap.sent || "(missing sent time)",
+    expires: cap.expires || "(missing expiry)",
     time: classifyTime(cap),
     ...location
   };
 }
 
 async function main() {
-  console.log("=== SafeGuard Location Classification Dry Run ===");
+  console.log("=== SafeGuard Expanded CAP Sample Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
+  console.log(`CAP request limit: ${MAX_CAP_CHECKS}`);
+  console.log(`Concurrent requests: ${CONCURRENCY}`);
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
 
   console.log(`RSS items found: ${items.length}`);
 
-  const candidates = items
-    .filter(item => item.link && validCapUrl(item.link))
-    .slice(0, MAX_CAP_CHECKS);
+  const validItems = items.filter(
+    item => item.link && validCapUrl(item.link)
+  );
 
+  const candidates = validItems.slice(0, MAX_CAP_CHECKS);
+
+  console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records selected: ${candidates.length}`);
   console.log("This is a limited sample, not a complete scan.");
 
@@ -255,20 +266,23 @@ async function main() {
         console.log("\n--- CAP RECORD ---");
         console.log(`Title: ${result.title}`);
         console.log(`ID: ${result.identifier}`);
+        console.log(`References: ${result.references}`);
         console.log(`Event: ${result.event}`);
         console.log(`Area: ${result.area}`);
         console.log(`Severity: ${result.severity}`);
         console.log(`Urgency: ${result.urgency}`);
         console.log(`Certainty: ${result.certainty}`);
+        console.log(`Sent: ${result.sent}`);
+        console.log(`Expires: ${result.expires}`);
         console.log(`Time: ${result.time}`);
         console.log(`Location: ${result.classification}`);
 
-        if (result.maharashtraMatches.length) {
-          console.log(`Maharashtra terms: ${result.maharashtraMatches.join(", ")}`);
+        if (result.maharashtra.length) {
+          console.log(`Maharashtra keywords: ${result.maharashtra.join(", ")}`);
         }
 
-        if (result.otherStateMatches.length) {
-          console.log(`Other state terms: ${result.otherStateMatches.join(", ")}`);
+        if (result.otherStates.length) {
+          console.log(`Other-state keywords: ${result.otherStates.join(", ")}`);
         }
       } catch (error) {
         errors.push({ title: item.title, error: error.message });
@@ -285,27 +299,31 @@ async function main() {
   );
 
   const maharashtra = results.filter(
-    result => result.classification === "MAHARASHTRA MATCH — REVIEW"
+    result => result.classification === "MAHARASHTRA KEYWORD — REVIEW"
   );
-
   const elsewhere = results.filter(
-    result => result.classification === "OTHER STATE MENTION — REVIEW"
+    result => result.classification === "OTHER STATE KEYWORD — REVIEW"
   );
-
   const unclear = results.filter(
     result => result.classification === "LOCATION UNCLEAR"
   );
-
   const expired = results.filter(result => result.time === "EXPIRED");
+  const updates = results.filter(result => result.time === "UPDATE MESSAGE — REVIEW");
+  const cancellations = results.filter(
+    result => result.time === "CANCEL MESSAGE — REVIEW"
+  );
 
   console.log("\n=== SUMMARY ===");
   console.log(`RSS items scanned: ${items.length}`);
+  console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records checked: ${results.length}`);
   console.log(`Fetch errors: ${errors.length}`);
   console.log(`Maharashtra keyword matches: ${maharashtra.length}`);
-  console.log(`Other state mentions: ${elsewhere.length}`);
+  console.log(`Other-state keyword matches: ${elsewhere.length}`);
   console.log(`Location unclear: ${unclear.length}`);
   console.log(`Expired records: ${expired.length}`);
+  console.log(`Update messages: ${updates.length}`);
+  console.log(`Cancellation messages: ${cancellations.length}`);
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
   console.log("Dry run complete.");
