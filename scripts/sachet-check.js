@@ -596,6 +596,80 @@ function runCapSelfTests() {
       Object.keys(expiredStateResult.state.activeAlerts).length === 0
   });
 
+  
+  // Test: update modifies the referenced original alert
+  const updateState = createEmptyCapState();
+
+  const originalAlert = {
+    sender: "Test-Sender",
+    identifier: "CAP-ORIGINAL",
+    sent: "2026-10-13T10:00:00Z",
+    msgType: "Alert",
+    timeClassification: "UNEXPIRED — manual review required",
+    event: "Heavy Rain",
+    references: []
+  };
+
+  const originalResult = applyCapMessageToState(
+    updateState,
+    originalAlert
+  );
+
+  const updateResult = applyCapMessageToState(
+    originalResult.state,
+    {
+      sender: "Test-Sender",
+      identifier: "CAP-UPDATE",
+      sent: "2026-10-13T10:05:00Z",
+      msgType: "Update",
+      timeClassification: "UPDATE — REVIEW",
+      event: "Severe Rain",
+      references: [{
+        sender: "Test-Sender",
+        identifier: "CAP-ORIGINAL",
+        sent: "2026-10-13T10:00:00Z"
+      }]
+    }
+  );
+
+  const updatedAlert =
+    updateResult.state.activeAlerts[
+      "Test-Sender|CAP-ORIGINAL"
+    ];
+
+  tests.push({
+    name: "Update modifies referenced original alert",
+    passed:
+      updateResult.action === "UPDATED" &&
+      updatedAlert?.event === "Severe Rain" &&
+      Object.keys(updateResult.state.activeAlerts).length === 1
+  });
+
+  // Test: update with unknown reference requires review
+  const unknownUpdateResult = applyCapMessageToState(
+    createEmptyCapState(),
+    {
+      sender: "Test-Sender",
+      identifier: "CAP-UNKNOWN-UPDATE",
+      sent: "2026-10-13T10:10:00Z",
+      msgType: "Update",
+      timeClassification: "UPDATE — REVIEW",
+      references: [{
+        sender: "Test-Sender",
+        identifier: "CAP-NOT-FOUND",
+        sent: "2026-10-13T09:00:00Z"
+      }]
+    }
+  );
+
+  tests.push({
+    name: "Update with unknown reference requires review",
+    passed:
+      unknownUpdateResult.action === "UPDATE_REVIEW" &&
+      Object.keys(unknownUpdateResult.state.activeAlerts).length === 0
+  });
+
+
   function makeRecord(overrides = {}) {
     return {
       sender: "Test-Sender",
