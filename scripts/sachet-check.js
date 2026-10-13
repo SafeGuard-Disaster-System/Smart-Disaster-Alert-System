@@ -396,21 +396,18 @@ function runLocationSelfTests() {
   }
 }
 
-function runCapSelfTests() {
-  const tests = [];
-  const check = (name, passed) => tests.push({ name, passed });
-
-  function makeRecord(overrides = {}) {
-    return {
-      sender: "Test-Sender",
-      identifier: "CAP-001",
-      sent: "2026-10-13T10:00:00Z",
-      msgType: "Alert",
-      timeClassification: "UNEXPIRED — manual review required",
-      references: [],
-      ...overrides
-    };
-  }
+function makeRecord(overrides = {}) {
+  return {
+    sender: "Test-Sender",
+    identifier: "CAP-001",
+    sent: "2026-10-13T10:00:00Z",
+    msgType: "Alert",
+    timeClassification: "UNEXPIRED — manual review required",
+    locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
+    references: [],
+    ...overrides
+  };
+}
 
   console.log("=== SafeGuard Synthetic CAP Tests ===");
   console.log("Mode: LOCAL TESTS ONLY");
