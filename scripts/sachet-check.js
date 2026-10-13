@@ -573,6 +573,28 @@ function runCapSelfTests() {
       Object.keys(cancelResult.state.activeAlerts).length === 0
   });
 
+  
+  // Test: expired alerts are never added to active state
+  const expiredState = createEmptyCapState();
+
+  const expiredStateResult = applyCapMessageToState(
+    expiredState,
+    {
+      sender: "Test-Sender",
+      identifier: "CAP-EXPIRED",
+      sent: "2026-10-13T10:10:00Z",
+      msgType: "Alert",
+      timeClassification: "EXPIRED",
+      references: []
+    }
+  );
+
+  tests.push({
+    name: "Expired alert is not added to active state",
+    passed:
+      expiredStateResult.action === "EXPIRED" &&
+      Object.keys(expiredStateResult.state.activeAlerts).length === 0
+  });
 
   function makeRecord(overrides = {}) {
     return {
