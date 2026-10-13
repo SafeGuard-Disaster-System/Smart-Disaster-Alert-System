@@ -282,7 +282,7 @@ function applyCapMessageToState(state, record) {
     };
   }
 
-  if (record.timeClassification === "EXPIRED") {
+    if (record.timeClassification === "EXPIRED") {
     markProcessed(nextState, messageKey, record);
     return { state: nextState, action: "EXPIRED" };
   }
@@ -293,6 +293,18 @@ function applyCapMessageToState(state, record) {
       "UNEXPIRED — manual review required"
   ) {
     return { state: nextState, action: "REVIEW" };
+  }
+
+  // Location screening is preliminary, not geographic verification.
+  // Only possible local matches may enter state for manual review.
+  if (
+    record.locationClassification !==
+    "POSSIBLE LOCAL MATCH — VERIFY"
+  ) {
+    return {
+      state: nextState,
+      action: "LOCATION_REVIEW"
+    };
   }
 
   nextState.activeAlerts[alertKey] = {
