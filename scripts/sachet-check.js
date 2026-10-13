@@ -286,6 +286,80 @@ function createEmptyCapState() {
   };
 }
 
+
+function applyCapMessageToState(state, record) {
+  const nextState = JSON.parse(JSON.stringify(state));
+  const messageKey = `${record.sender}|${record.identifier}|${record.sent}`;
+
+  if (nextState.processedMessages[messageKey]) {
+    return { state: nextState, action: "DUPLICATE" };
+  }
+
+  nextState.processedMessages[messageKey] = {
+    sender: record.sender,
+    identifier: record.identifier,
+    sent: record.sent,
+    msgType: record.msgType
+  };
+
+  const references = Array.isArray(record.references)
+    ? record.references
+    : [];
+
+  const original = references
+    .map(ref => `${ref.sender}|${ref.identifier}`)
+    .find(key => nextState.activeAlerts[key]);
+
+  const alertKey = `${record.sender}|${record.identifier}`;
+
+  if (record.msgType === "Cancel") {
+    if (original) {
+      delete nextState.activeAlerts[original];
+    }
+    return {
+      state: nextState,
+      action: original ? "CANCELLED" : "CANCELLATION_REVIEW"
+    };
+  }
+
+  if (record.msgType === "Update") {
+    if (!original) {
+      return { state: nextState, action: "UPDATE_REVIEW" };
+    }
+
+    if (record.timeClassification === "EXPIRED") {
+      delete nextState.activeAlerts[original];
+      return { state: nextState, action: "EXPIRED" };
+    }
+
+    nextState.activeAlerts[original] = {
+      ...nextState.activeAlerts[original],
+      ...record,
+      originalKey: original
+    };
+
+    return { state: nextState, action: "UPDATED" };
+  }
+
+  if (
+    record.msgType !== "Alert" ||
+    record.timeClassification !== "UNEXPIRED — manual review required"
+  ) {
+    return { state: nextState, action: "REVIEW" };
+  }
+
+  if (record.timeClassification === "EXPIRED") {
+    return { state: nextState, action: "EXPIRED" };
+  }
+
+  nextState.activeAlerts[alertKey] = {
+    ...record,
+    originalKey: alertKey
+  };
+
+  return { state: nextState, action: "NEW_ALERT_REVIEW" };
+}
+
 function analyzeBatch(records) {
   const seenIds = new Set();
   const seenMessages = new Set();
