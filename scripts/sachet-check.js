@@ -5,21 +5,44 @@ const FEED_URL =
 const CAP_HOST = "sachet.ndma.gov.in";
 const CAP_PATH = "/cap_public_website/FetchXMLFile";
 
-// Small test batch: increase only after reviewing the results.
+// Inspect a small sample first; this is not a complete feed scan.
 const MAX_CAP_CHECKS = 10;
 const CONCURRENCY = 2;
 
 const MAHARASHTRA_TERMS = [
-  "maharashtra", "mumbai", "navi mumbai", "thane", "palghar",
-  "raigad", "ratnagiri", "sindhudurg", "pune", "nashik", "nagpur",
-  "kolhapur", "satara", "sangli", "solapur", "ahilyanagar",
-  "ahmednagar", "dhule", "nandurbar", "jalgaon",
-  "chhatrapati sambhajinagar", "aurangabad", "jalna", "beed",
-  "latur", "dharashiv", "osmanabad", "nanded", "parbhani",
-  "hingoli", "akola", "amravati", "buldhana", "washim", "yavatmal",
-  "wardha", "bhandara", "gondia", "chandrapur", "gadchiroli",
-  "baramati", "kalyan", "dombivli", "ulhasnagar", "badlapur",
-  "panvel", "vasai", "virar"
+  "maharashtra", "महाराष्ट्र", "mumbai", "मुंबई", "navi mumbai",
+  "नवी मुंबई", "thane", "ठाणे", "palghar", "पालघर", "raigad",
+  "रायगड", "ratnagiri", "रत्नागिरी", "sindhudurg", "सिंधुदुर्ग",
+  "pune", "पुणे", "nashik", "नाशिक", "nagpur", "नागपूर",
+  "kolhapur", "कोल्हापूर", "satara", "सातारा", "sangli", "सांगली",
+  "solapur", "सोलापूर", "ahilyanagar", "ahmednagar", "अहिल्यानगर",
+  "dhule", "धुळे", "nandurbar", "नंदुरबार", "jalgaon", "जळगाव",
+  "chhatrapati sambhajinagar", "aurangabad", "छत्रपती संभाजीनगर",
+  "jalna", "जालना", "beed", "बीड", "latur", "लातूर",
+  "dharashiv", "osmanabad", "nanded", "नांदेड", "parbhani", "परभणी",
+  "hingoli", "हिंगोली", "akola", "अकोला", "amravati", "अमरावती",
+  "buldhana", "बुलढाणा", "washim", "वाशिम", "yavatmal", "यवतमाळ",
+  "wardha", "वर्धा", "bhandara", "भंडारा", "gondia", "गोंदिया",
+  "chandrapur", "चंद्रपूर", "gadchiroli", "गडचिरोली",
+  "baramati", "kalyan", "कल्याण", "dombivli", "डोंबिवली",
+  "ulhasnagar", "badlapur", "panvel", "पनवेल", "vasai", "virar"
+];
+
+// These state names help confirm a location only when explicitly present.
+// This list is not an exhaustive geographic database.
+const OTHER_STATE_TERMS = [
+  "andhra pradesh", "आंध्र प्रदेश", "bihar", "बिहार",
+  "uttar pradesh", "उत्तर प्रदेश", "uttarakhand", "उत्तराखंड",
+  "tamil nadu", "तमिलनाडु", "karnataka", "कर्नाटक",
+  "kerala", "केरल", "telangana", "तेलंगाना",
+  "gujarat", "गुजरात", "rajasthan", "राजस्थान",
+  "madhya pradesh", "मध्य प्रदेश", "goa", "गोवा",
+  "west bengal", "पश्चिम बंगाल", "odisha", "ओडिशा",
+  "assam", "असम", "punjab", "पंजाब", "haryana", "हरियाणा",
+  "himachal pradesh", "हिमाचल प्रदेश",
+  "jharkhand", "झारखंड", "chhattisgarh", "छत्तीसगढ़",
+  "manipur", "meghalaya", "mizoram", "nagaland", "tripura",
+  "sikkim", "arunachal pradesh"
 ];
 
 function decodeXml(value = "") {
@@ -52,10 +75,10 @@ function getCapTag(xml, tag) {
   return match ? decodeXml(match[1]) : "";
 }
 
-function matchesMaharashtra(text) {
+function findTerms(text, terms) {
   const normalized = text.toLowerCase();
 
-  return MAHARASHTRA_TERMS.filter(term => {
+  return terms.filter(term => {
     const safe = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return new RegExp(`(^|[^a-z])${safe}([^a-z]|$)`, "i")
       .test(normalized);
@@ -64,8 +87,8 @@ function matchesMaharashtra(text) {
 
 function parseDate(value) {
   if (!value) return null;
-  const date = Date.parse(value);
-  return Number.isNaN(date) ? null : date;
+  const timestamp = Date.parse(value);
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function classifyTime(cap) {
@@ -102,6 +125,33 @@ function classifyTime(cap) {
   if (effective > now) return "FUTURE — not active yet";
 
   return "UNEXPIRED — manual review required";
+}
+
+function classifyLocation(text) {
+  const maharashtraMatches = findTerms(text, MAHARASHTRA_TERMS);
+  const otherStateMatches = findTerms(text, OTHER_STATE_TERMS);
+
+  if (maharashtraMatches.length > 0) {
+    return {
+      classification: "MAHARASHTRA MATCH — REVIEW",
+      maharashtraMatches,
+      otherStateMatches
+    };
+  }
+
+  if (otherStateMatches.length > 0) {
+    return {
+      classification: "OTHER STATE MENTION — REVIEW",
+      maharashtraMatches,
+      otherStateMatches
+    };
+  }
+
+  return {
+    classification: "LOCATION UNCLEAR",
+    maharashtraMatches,
+    otherStateMatches
+  };
 }
 
 async function fetchText(url) {
@@ -159,7 +209,7 @@ async function checkCap(item) {
     cap.description, cap.areaDesc
   ].join(" ");
 
-  const matches = matchesMaharashtra(locationText);
+  const location = classifyLocation(locationText);
 
   return {
     title: item.title || cap.headline || "(untitled)",
@@ -170,15 +220,12 @@ async function checkCap(item) {
     urgency: cap.urgency || "(missing urgency)",
     certainty: cap.certainty || "(missing certainty)",
     time: classifyTime(cap),
-    matches,
-    location: matches.length
-      ? `MAHARASHTRA KEYWORD — REVIEW (${matches.join(", ")})`
-      : "NO KEYWORD MATCH — LOCATION UNCONFIRMED"
+    ...location
   };
 }
 
 async function main() {
-  console.log("=== SafeGuard CAP Detail Dry Run ===");
+  console.log("=== SafeGuard Location Classification Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
 
   const rss = await fetchText(FEED_URL);
@@ -186,13 +233,12 @@ async function main() {
 
   console.log(`RSS items found: ${items.length}`);
 
-  // Inspect the first batch of valid CAP links regardless of RSS title.
   const candidates = items
     .filter(item => item.link && validCapUrl(item.link))
     .slice(0, MAX_CAP_CHECKS);
 
-  console.log(`Valid CAP links selected for inspection: ${candidates.length}`);
-  console.log("Note: this is a limited sample, not a complete Maharashtra scan.");
+  console.log(`CAP records selected: ${candidates.length}`);
+  console.log("This is a limited sample, not a complete scan.");
 
   const results = [];
   const errors = [];
@@ -215,7 +261,15 @@ async function main() {
         console.log(`Urgency: ${result.urgency}`);
         console.log(`Certainty: ${result.certainty}`);
         console.log(`Time: ${result.time}`);
-        console.log(`Location: ${result.location}`);
+        console.log(`Location: ${result.classification}`);
+
+        if (result.maharashtraMatches.length) {
+          console.log(`Maharashtra terms: ${result.maharashtraMatches.join(", ")}`);
+        }
+
+        if (result.otherStateMatches.length) {
+          console.log(`Other state terms: ${result.otherStateMatches.join(", ")}`);
+        }
       } catch (error) {
         errors.push({ title: item.title, error: error.message });
         console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
@@ -230,16 +284,27 @@ async function main() {
     )
   );
 
-  const matched = results.filter(result => result.matches.length > 0);
+  const maharashtra = results.filter(
+    result => result.classification === "MAHARASHTRA MATCH — REVIEW"
+  );
+
+  const elsewhere = results.filter(
+    result => result.classification === "OTHER STATE MENTION — REVIEW"
+  );
+
+  const unclear = results.filter(
+    result => result.classification === "LOCATION UNCLEAR"
+  );
+
   const expired = results.filter(result => result.time === "EXPIRED");
-  const unclear = results.filter(result => result.matches.length === 0);
 
   console.log("\n=== SUMMARY ===");
   console.log(`RSS items scanned: ${items.length}`);
   console.log(`CAP records checked: ${results.length}`);
   console.log(`Fetch errors: ${errors.length}`);
-  console.log(`Maharashtra keyword matches requiring review: ${matched.length}`);
-  console.log(`Location unconfirmed: ${unclear.length}`);
+  console.log(`Maharashtra keyword matches: ${maharashtra.length}`);
+  console.log(`Other state mentions: ${elsewhere.length}`);
+  console.log(`Location unclear: ${unclear.length}`);
   console.log(`Expired records: ${expired.length}`);
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
