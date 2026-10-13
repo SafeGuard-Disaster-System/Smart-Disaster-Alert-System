@@ -63,6 +63,7 @@ function getCapTag(xml, tag) {
   return match ? decodeXml(match[1]) : "";
 }
 
+
 function parseRssItems(xml) {
   const items =
     xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
@@ -70,9 +71,11 @@ function parseRssItems(xml) {
   return items.map(item => ({
     title: getTag(item, "title"),
     id: getTag(item, "guid"),
-    link: getTag(item, "link")
+    link: getTag(item, "link"),
+    pubDate: getTag(item, "pubDate")
   }));
 }
+
 
 function validCapUrl(rawUrl) {
   try {
@@ -557,7 +560,25 @@ async function main() {
     item => item.link && validCapUrl(item.link)
   );
 
-  const candidates = validItems.slice(0, MAX_CAP_CHECKS);
+  
+  const candidates = validItems
+    .map((item, index) => ({
+      ...item,
+      publishedAt: Date.parse(item.pubDate),
+      originalIndex: index
+    }))
+    .sort((a, b) => {
+      const aTime = Number.isNaN(a.publishedAt)
+        ? -Infinity
+        : a.publishedAt;
+      const bTime = Number.isNaN(b.publishedAt)
+        ? -Infinity
+        : b.publishedAt;
+
+      return bTime - aTime || a.originalIndex - b.originalIndex;
+    })
+    .slice(0, MAX_CAP_CHECKS);
+
 
   console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
