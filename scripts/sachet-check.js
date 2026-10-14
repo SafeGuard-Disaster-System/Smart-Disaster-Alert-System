@@ -229,6 +229,7 @@ function createEmptyCapState() {
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const os = require("node:os");
 
 const STATE_FILE = path.join(
   process.cwd(),
@@ -236,11 +237,16 @@ const STATE_FILE = path.join(
   "alert-state.json"
 );
 
-async function loadCapState() {
+function getStateFilePath(filePath = STATE_FILE) {
+  return filePath;
+}
+
+
+async function loadCapState(filePath = STATE_FILE) {
   let raw;
 
   try {
-    raw = await fs.readFile(STATE_FILE, "utf8");
+    raw = await fs.readFile(getStateFilePath(filePath), "utf8");
   } catch (error) {
     
   if (error.code === "ENOENT") {
@@ -284,7 +290,7 @@ async function loadCapState() {
   return state;
 }
 
-async function saveCapState(state) {
+async function saveCapState(state, filePath = STATE_FILE) {
   if (
     !state ||
     state.version !== 1 ||
@@ -299,7 +305,8 @@ async function saveCapState(state) {
     lastUpdated: new Date().toISOString()
   };
 
-  const tempFile = `${STATE_FILE}.tmp`;
+  const targetFile = getStateFilePath(filePath);
+  const tempFile = `${targetFile}.tmp`;
 
   await fs.writeFile(
     tempFile,
@@ -307,7 +314,7 @@ async function saveCapState(state) {
     { encoding: "utf8", flag: "w" }
   );
 
-  await fs.rename(tempFile, STATE_FILE);
+  await fs.rename(tempFile, targetFile);
 }
 
 function applyCapMessageToState(state, record) {
@@ -440,6 +447,85 @@ function analyzeBatch(records) {
       record.messageClassification +=
         `; references ${record.references.map(ref => ref.identifier).join(", ")}`;
     }
+  }
+}
+
+
+async function runStateSelfTests() {
+  const assert = require("node:assert/strict");
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "safeguard-state-test-")
+  );
+
+  const testFile = path.join(tempDir, "alert-state.json");
+
+  const validState = {
+    version: 1,
+    processedMessages: {},
+    activeAlerts: {},
+    lastUpdated: null
+  };
+
+  let passed = 0;
+
+  async function check(name, test) {
+    try {
+      await test();
+      passed++;
+      console.log(`PASS: ${name}`);
+    } catch (error) {
+      console.error(`FAIL: ${name} — ${error.message}`);
+      throw error;
+    }
+  }
+
+  try {
+    await check("Valid state loads", async () => {
+      await fs.writeFile(testFile, JSON.stringify(validState));
+      const loaded = await loadCapState(testFile);
+      assert.deepEqual(loaded, validState);
+    });
+
+    await check("Missing file is rejected", async () => {
+      await assert.rejects(
+        loadCapState(path.join(tempDir, "missing.json")),
+        /missing/i
+      );
+    });
+
+    await check("Invalid JSON is rejected", async () => {
+      await fs.writeFile(testFile, "{invalid json");
+      await assert.rejects(
+        loadCapState(testFile),
+        /invalid JSON/i
+      );
+    });
+
+    await check("Invalid structure is rejected", async () => {
+      await fs.writeFile(
+        testFile,
+        JSON.stringify({ version: 99 })
+      );
+      await assert.rejects(
+        loadCapState(testFile),
+        /invalid structure/i
+      );
+    });
+
+    await check("Save and load round trip succeeds", async () => {
+      await saveCapState(validState, testFile);
+      const loaded = await loadCapState(testFile);
+
+      assert.equal(loaded.version, 1);
+      assert.deepEqual(loaded.processedMessages, {});
+      assert.deepEqual(loaded.activeAlerts, {});
+      assert.ok(typeof loaded.lastUpdated === "string");
+      assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
+    });
+
+    console.log(`State tests passed: ${passed}/5`);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
 
@@ -900,7 +986,13 @@ async function main() {
   console.log("Dry run complete.");
 }
 
-if (process.argv.includes("--test-location")) {
+
+if (process.argv.includes("--test-state")) {
+  runStateSelfTests().catch(error => {
+    console.error("STATE TESTS FAILED:", error.message);
+    process.exitCode = 1;
+  });
+} else if (process.argv.includes("--test-location")) {
   runLocationSelfTests();
 } else if (process.argv.includes("--test-cap")) {
   runCapSelfTests();
@@ -910,3 +1002,4 @@ if (process.argv.includes("--test-location")) {
     process.exitCode = 1;
   });
 }
+
