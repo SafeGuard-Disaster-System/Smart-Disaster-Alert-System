@@ -206,6 +206,8 @@ async function checkCap(item) {
     certainty: cap.certainty || "(missing certainty)",
     effective: cap.effective,
     expires: cap.expires,
+    headline: cap.headline || item.title || "",
+    sourceUrl: item.link,
     references: parseReferences(cap.referencesText),
     locationClassification: classifyLocation(
       cap.areaDesc,
@@ -221,6 +223,7 @@ function createEmptyCapState() {
     version: 1,
     processedMessages: {},
     activeAlerts: {},
+    reviewCandidates: {},
     lastUpdated: null
   };
 }
@@ -235,37 +238,44 @@ function getStateFilePath(filePath = STATE_FILE) {
   return filePath;
 }
 
+function isStateMap(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseCapState(raw) {
+  let state;
+  try {
+    state = JSON.parse(raw);
+  } catch {
+    throw new Error("State file contains invalid JSON; refusing to reset state.");
+  }
+
+  const reviewCandidates = state && state.reviewCandidates !== undefined
+    ? state.reviewCandidates
+    : {};
+
+  if (
+    !state ||
+    typeof state !== "object" ||
+    Array.isArray(state) ||
+    state.version !== 1 ||
+    !isStateMap(state.processedMessages) ||
+    !isStateMap(state.activeAlerts) ||
+    !isStateMap(reviewCandidates) ||
+    !(state.lastUpdated === null || typeof state.lastUpdated === "string")
+  ) {
+    throw new Error("State file has an invalid structure; refusing to reset state.");
+  }
+
+  return { ...state, reviewCandidates };
+}
+
 async function loadCapState(filePath = STATE_FILE) {
   const targetFile = getStateFilePath(filePath);
 
   try {
     const raw = await fs.readFile(targetFile, "utf8");
-    let state;
-    try {
-      state = JSON.parse(raw);
-    } catch {
-      throw new Error(
-        "State file contains invalid JSON; refusing to reset state."
-      );
-    }
-
-    if (
-      !state ||
-      state.version !== 1 ||
-      !state.processedMessages ||
-      typeof state.processedMessages !== "object" ||
-      Array.isArray(state.processedMessages) ||
-      !state.activeAlerts ||
-      typeof state.activeAlerts !== "object" ||
-      Array.isArray(state.activeAlerts) ||
-      !(state.lastUpdated === null || typeof state.lastUpdated === "string")
-    ) {
-      throw new Error(
-        "State file has an invalid structure; refusing to reset state."
-      );
-    }
-
-    return state;
+    return parseCapState(raw);
   } catch (error) {
     if (error && error.code === "ENOENT") {
       await fs.mkdir(path.dirname(targetFile), { recursive: true });
@@ -277,18 +287,34 @@ async function loadCapState(filePath = STATE_FILE) {
   }
 }
 
+async function readReviewCandidates(filePath = STATE_FILE) {
+  try {
+    const raw = await fs.readFile(getStateFilePath(filePath), "utf8");
+    return parseCapState(raw).reviewCandidates;
+  } catch (error) {
+    if (error && error.code === "ENOENT") return {};
+    throw error;
+  }
+}
+
 async function saveCapState(state, filePath = STATE_FILE) {
+  const reviewCandidates = state && state.reviewCandidates === undefined
+    ? {}
+    : state?.reviewCandidates;
+
   if (
     !state ||
     state.version !== 1 ||
-    !state.processedMessages ||
-    !state.activeAlerts
+    !isStateMap(state.processedMessages) ||
+    !isStateMap(state.activeAlerts) ||
+    !isStateMap(reviewCandidates)
   ) {
     throw new Error("Refusing to save invalid CAP state.");
   }
 
   const updatedState = {
     ...state,
+    reviewCandidates,
     lastUpdated: new Date().toISOString()
   };
 
@@ -348,32 +374,75 @@ function applyCapMessageToState(state, record) {
     return { state: nextState, action: "DUPLICATE" };
   }
 
+  nextState.reviewCandidates = nextState.reviewCandidates || {};
   const references = Array.isArray(record.references) ? record.references : [];
-  const original = references
-    .map(ref => Object.entries(nextState.activeAlerts)
-      .find(([, active]) => capMatchesReference(active, ref))?.[0] || null
-    )
-    .find(Boolean);
+  const original = findReferencedRecordKey(nextState.activeAlerts, references);
+  const reviewOriginal = findReferencedRecordKey(
+    nextState.reviewCandidates,
+    references
+  );
 
   const alertKey = `${record.sender}|${record.identifier}`;
 
   if (record.msgType === "Cancel") {
-    if (!original) {
+    const linkedActiveKey = reviewOriginal && nextState.activeAlerts[reviewOriginal]
+      ? reviewOriginal
+      : null;
+    const activeKey = original || linkedActiveKey;
+
+    if (!activeKey && !reviewOriginal) {
       return { state: nextState, action: "CANCELLATION_REVIEW" };
     }
 
-    delete nextState.activeAlerts[original];
+    if (activeKey) delete nextState.activeAlerts[activeKey];
+    if (reviewOriginal) {
+      nextState.reviewCandidates[reviewOriginal] = {
+        ...nextState.reviewCandidates[reviewOriginal],
+        reviewStatus: "CANCELLED — NOT ACTIVE",
+        cancellationIdentifier: record.identifier,
+        cancellationSent: record.sent
+      };
+    }
     markProcessed(nextState, messageKey, record);
-    return { state: nextState, action: "CANCELLED" };
+    return {
+      state: nextState,
+      action: activeKey ? "CANCELLED" : "CANCELLED_REVIEW_CANDIDATE"
+    };
   }
 
   if (record.msgType === "Update") {
-    if (!original) {
+    if (record.timeClassification !== "UPDATE — REVIEW") {
+      return { state: nextState, action: "UPDATE_TIME_REVIEW" };
+    }
+
+    if (!original && !reviewOriginal) {
       return { state: nextState, action: "UPDATE_REVIEW" };
     }
 
-    if (record.timeClassification !== "UPDATE — REVIEW") {
-      return { state: nextState, action: "UPDATE_TIME_REVIEW" };
+    const candidateKey = reviewOriginal || original;
+    const existingCandidate = nextState.reviewCandidates[candidateKey] ||
+      createReviewCandidate(
+        nextState.activeAlerts[original],
+        "PENDING REVIEW"
+      );
+    const updateReviewStatus =
+      record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+        ? "PENDING REVIEW"
+        : record.locationClassification === "NEEDS MANUAL REVIEW"
+          ? "LOCATION REVIEW REQUIRED"
+          : "UPDATE LOCATION REVIEW";
+    nextState.reviewCandidates[candidateKey] = {
+      ...existingCandidate,
+      ...createReviewCandidate(record, updateReviewStatus),
+      reviewKey: existingCandidate.reviewKey || candidateKey,
+      originalIdentifier:
+        existingCandidate.originalIdentifier || existingCandidate.sourceIdentifier,
+      originalKey: candidateKey
+    };
+
+    if (!original) {
+      markProcessed(nextState, messageKey, record);
+      return { state: nextState, action: "UPDATE_REVIEW" };
     }
 
     if (record.locationClassification !== "POSSIBLE LOCAL MATCH — VERIFY") {
@@ -407,10 +476,22 @@ function applyCapMessageToState(state, record) {
   }
 
   if (record.locationClassification !== "POSSIBLE LOCAL MATCH — VERIFY") {
-    return {
-      state: nextState,
-      action: "LOCATION_REVIEW"
-    };
+    if (record.locationClassification !== "NEEDS MANUAL REVIEW") {
+      return { state: nextState, action: "LOCATION_REVIEW" };
+    }
+  }
+
+  if (!nextState.reviewCandidates[alertKey]) {
+    nextState.reviewCandidates[alertKey] = createReviewCandidate(
+      record,
+      record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+        ? "PENDING REVIEW"
+        : "LOCATION REVIEW REQUIRED"
+    );
+  }
+
+  if (record.locationClassification === "NEEDS MANUAL REVIEW") {
+    return { state: nextState, action: "LOCATION_REVIEW" };
   }
 
   nextState.activeAlerts[alertKey] = {
@@ -499,6 +580,50 @@ function capMatchesReference(cap, reference) {
   );
 }
 
+function findReferencedRecordKey(records, references) {
+  for (const reference of references) {
+    const match = Object.entries(records).find(([, record]) =>
+      capMatchesReference(record, reference)
+    );
+    if (match) return match[0];
+  }
+  return null;
+}
+
+function createReviewCandidate(record, reviewStatus = "PENDING REVIEW") {
+  const locationAssessment =
+    record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+      ? "UNVERIFIED — KEYWORD MATCH ONLY; REVIEW REQUIRED"
+      : "UNVERIFIED — LOCATION REQUIRES REVIEW";
+
+  return {
+    source: "SACHET CAP",
+    reviewKey: `${record.sender}|${record.identifier}`,
+    sender: record.sender,
+    identifier: record.identifier,
+    sourceIdentifier: record.identifier,
+    originalIdentifier: record.identifier,
+    sent: record.sent,
+    headline: record.headline || record.title || "",
+    area: record.area || "",
+    severity: record.severity || "",
+    status: record.status || "",
+    event: record.event || "",
+    urgency: record.urgency || "",
+    certainty: record.certainty || "",
+    effective: record.effective || null,
+    expires: record.expires || null,
+    timeClassification: record.timeClassification || "REVIEW REQUIRED",
+    locationClassification: record.locationClassification || "NEEDS MANUAL REVIEW",
+    locationAssessment,
+    sourceUrl: record.sourceUrl || null,
+    messageType: record.msgType,
+    reviewStatus,
+    publicationStatus: "NOT PUBLISHED",
+    notificationStatus: "NOT SENT"
+  };
+}
+
 function analyzeBatch(records) {
   const seenIds = new Set();
   const seenMessages = new Set();
@@ -559,7 +684,7 @@ async function runStateSelfTests() {
     await check("Valid state loads", async () => {
       await fs.writeFile(testFile, JSON.stringify(validState));
       const loaded = await loadCapState(testFile);
-      assert.deepEqual(loaded, validState);
+      assert.deepEqual(loaded, { ...validState, reviewCandidates: {} });
     });
 
     await check("Missing file is created and loads", async () => {
@@ -568,6 +693,7 @@ async function runStateSelfTests() {
       assert.equal(loaded.version, 1);
       assert.deepEqual(loaded.processedMessages, {});
       assert.deepEqual(loaded.activeAlerts, {});
+      assert.deepEqual(loaded.reviewCandidates, {});
     });
 
     await check("Invalid JSON is rejected", async () => {
@@ -588,6 +714,24 @@ async function runStateSelfTests() {
       assert.deepEqual(loaded.activeAlerts, {});
       assert.ok(typeof loaded.lastUpdated === "string");
       assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
+    });
+
+    await check("Review queue inspection is read-only", async () => {
+      const queue = {
+        "Test-Sender|CAP-REVIEW": {
+          source: "SACHET CAP",
+          publicationStatus: "NOT PUBLISHED"
+        }
+      };
+      await fs.writeFile(testFile, JSON.stringify({ ...validState, reviewCandidates: queue }));
+      const before = await fs.readFile(testFile, "utf8");
+
+      assert.deepEqual(await readReviewCandidates(testFile), queue);
+      assert.equal(await fs.readFile(testFile, "utf8"), before);
+
+      const missingFile = path.join(tempDir, "review-queue-missing.json");
+      assert.deepEqual(await readReviewCandidates(missingFile), {});
+      await assert.rejects(fs.stat(missingFile), error => error.code === "ENOENT");
     });
 
     await check("Load failures preserve state and skip saving", async () => {
@@ -636,7 +780,7 @@ async function runStateSelfTests() {
       }
     });
 
-    console.log(`State tests passed: ${passed}/6`);
+    console.log(`State tests passed: ${passed}/7`);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -657,6 +801,11 @@ async function runPersistenceSelfTests() {
       sent: "2026-10-14T10:00:00Z",
       msgType: "Alert",
       event: "Synthetic Rain",
+      headline: "Synthetic Rain Alert",
+      area: "Navi Mumbai",
+      severity: "Moderate",
+      effective: "2026-10-14T09:00:00Z",
+      expires: "2026-10-14T11:00:00Z",
       timeClassification: "UNEXPIRED — manual review required",
       locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
       references: []
@@ -670,6 +819,15 @@ async function runPersistenceSelfTests() {
     result = applyCapMessageToState(state, alert);
     assert.equal(result.action, "DUPLICATE");
     assert.equal(Object.keys(state.activeAlerts).length, 1);
+    assert.equal(Object.keys(state.reviewCandidates).length, 1);
+    assert.equal(
+      Object.values(state.reviewCandidates)[0].publicationStatus,
+      "NOT PUBLISHED"
+    );
+    assert.equal(
+      Object.values(state.reviewCandidates)[0].notificationStatus,
+      "NOT SENT"
+    );
 
     console.log("PASS: Synthetic alert saved and reloaded");
     console.log("PASS: Repeated message detected across runs");
@@ -724,6 +882,14 @@ function runCapSelfTests() {
       identifier: "CAP-001",
       sent: "2026-10-13T10:00:00Z",
       msgType: "Alert",
+      status: "Actual",
+      headline: "Heavy Rain",
+      title: "Heavy Rain",
+      area: "Navi Mumbai",
+      severity: "Moderate",
+      effective: new Date(Date.now() - 60_000).toISOString(),
+      expires: new Date(Date.now() + 60_000).toISOString(),
+      sourceUrl: "https://example.invalid/cap.xml",
       timeClassification: "UNEXPIRED — manual review required",
       locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
       references: [],
@@ -742,6 +908,7 @@ function runCapSelfTests() {
     emptyState.version === 1 &&
       typeof emptyState.processedMessages === "object" &&
       typeof emptyState.activeAlerts === "object" &&
+      typeof emptyState.reviewCandidates === "object" &&
       emptyState.lastUpdated === null
   );
 
@@ -754,9 +921,78 @@ function runCapSelfTests() {
       Object.keys(newResult.state.activeAlerts).length === 1
   );
 
+  const originalKey = `${original.sender}|${original.identifier}`;
+  const otherAlertKey = `${original.sender}|CAP-OTHER`;
+  const candidate = newResult.state.reviewCandidates[originalKey];
+  check(
+    "Candidate is stored separately with review details",
+    Boolean(candidate) &&
+      candidate.sourceIdentifier === original.identifier &&
+      candidate.originalIdentifier === original.identifier &&
+      candidate.headline === original.headline &&
+      candidate.area === original.area &&
+      candidate.severity === original.severity &&
+      candidate.effective === original.effective &&
+      candidate.expires === original.expires &&
+      candidate.reviewStatus === "PENDING REVIEW"
+  );
+  check(
+    "Candidate location is unverified and remains unpublished",
+    candidate.locationAssessment ===
+      "UNVERIFIED — KEYWORD MATCH ONLY; REVIEW REQUIRED" &&
+      candidate.publicationStatus === "NOT PUBLISHED" &&
+      candidate.notificationStatus === "NOT SENT"
+  );
+
+  const ambiguousAlert = makeRecord({
+    identifier: "CAP-AMBIGUOUS",
+    area: "Your district",
+    locationClassification: "NEEDS MANUAL REVIEW"
+  });
+  const ambiguousResult = applyCapMessageToState(
+    createEmptyCapState(),
+    ambiguousAlert
+  );
+  const ambiguousKey = `${ambiguousAlert.sender}|${ambiguousAlert.identifier}`;
+  const ambiguousCandidate = ambiguousResult.state.reviewCandidates[ambiguousKey];
+  check(
+    "Ambiguous location enters the review queue, not active alerts",
+    ambiguousResult.action === "LOCATION_REVIEW" &&
+      Boolean(ambiguousCandidate) &&
+      ambiguousCandidate.reviewStatus === "LOCATION REVIEW REQUIRED" &&
+      ambiguousCandidate.locationAssessment ===
+        "UNVERIFIED — LOCATION REQUIRES REVIEW" &&
+      Object.keys(ambiguousResult.state.activeAlerts).length === 0
+  );
+
+  const ambiguousCancel = makeRecord({
+    identifier: "CAP-AMBIGUOUS-CANCEL",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: ambiguousAlert.sender,
+      identifier: ambiguousAlert.identifier,
+      sent: ambiguousAlert.sent
+    }]
+  });
+  const ambiguousCancelResult = applyCapMessageToState(
+    ambiguousResult.state,
+    ambiguousCancel
+  );
+  check(
+    "Matching cancellation closes a review-only candidate",
+    ambiguousCancelResult.action === "CANCELLED_REVIEW_CANDIDATE" &&
+      ambiguousCancelResult.state.reviewCandidates[ambiguousKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE" &&
+      Object.keys(ambiguousCancelResult.state.activeAlerts).length === 0
+  );
+
+  const queueBeforeDuplicate = JSON.stringify(newResult.state.reviewCandidates);
+  const duplicateResult = applyCapMessageToState(newResult.state, original);
   check(
     "Repeated message is detected",
-    applyCapMessageToState(newResult.state, original).action === "DUPLICATE"
+    duplicateResult.action === "DUPLICATE" &&
+      JSON.stringify(duplicateResult.state.reviewCandidates) === queueBeforeDuplicate
   );
 
   const otherAlert = makeRecord({
@@ -764,8 +1000,6 @@ function runCapSelfTests() {
     sent: "2026-10-13T11:00:00Z"
   });
   const twoAlertResult = applyCapMessageToState(newResult.state, otherAlert);
-  const originalKey = `${original.sender}|${original.identifier}`;
-  const otherAlertKey = `${otherAlert.sender}|${otherAlert.identifier}`;
 
   function makeUpdate(identifier, overrides = {}) {
     const now = Date.now();
@@ -797,10 +1031,17 @@ function runCapSelfTests() {
   check(
     "Valid Update updates its referenced alert",
     validUpdateResult.action === "UPDATED" &&
-      validUpdateResult.state.activeAlerts[originalKey].event === "Updated Rain"
+      validUpdateResult.state.activeAlerts[originalKey].event === "Updated Rain" &&
+      validUpdateResult.state.reviewCandidates[originalKey].sourceIdentifier ===
+        validUpdate.identifier &&
+      validUpdateResult.state.reviewCandidates[originalKey].originalIdentifier ===
+        original.identifier &&
+      validUpdateResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "PENDING REVIEW"
   );
 
   const beforeUpdateAlerts = JSON.stringify(newResult.state.activeAlerts);
+  const beforeUpdateCandidates = JSON.stringify(newResult.state.reviewCandidates);
   const updateTimestampCases = [
     [
       "Expired Update is rejected",
@@ -831,9 +1072,42 @@ function runCapSelfTests() {
       name,
       update.timeClassification === expectedClassification &&
         updateResult.action === "UPDATE_TIME_REVIEW" &&
-        JSON.stringify(updateResult.state.activeAlerts) === beforeUpdateAlerts
+      JSON.stringify(updateResult.state.activeAlerts) === beforeUpdateAlerts &&
+      JSON.stringify(updateResult.state.reviewCandidates) === beforeUpdateCandidates
     );
   }
+
+  const manualLocationUpdate = makeUpdate("CAP-UPDATE-MANUAL-LOCATION", {
+    area: "Your district",
+    locationClassification: "NEEDS MANUAL REVIEW"
+  });
+  const manualLocationResult = applyCapMessageToState(
+    twoAlertResult.state,
+    manualLocationUpdate
+  );
+  const manualLocationCancel = makeRecord({
+    identifier: "CAP-CANCEL-MANUAL-LOCATION",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: manualLocationUpdate.sender,
+      identifier: manualLocationUpdate.identifier,
+      sent: manualLocationUpdate.sent
+    }]
+  });
+  const manualLocationCancelResult = applyCapMessageToState(
+    manualLocationResult.state,
+    manualLocationCancel
+  );
+  check(
+    "Cancellation deactivates the linked alert after a location-review Update",
+    manualLocationResult.action === "UPDATE_LOCATION_REVIEW" &&
+      manualLocationCancelResult.action === "CANCELLED" &&
+      !manualLocationCancelResult.state.activeAlerts[originalKey] &&
+      Boolean(manualLocationCancelResult.state.activeAlerts[otherAlertKey]) &&
+      manualLocationCancelResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE"
+  );
 
   const cancel = makeRecord({
     identifier: "CAP-CANCEL",
@@ -852,7 +1126,11 @@ function runCapSelfTests() {
     "Matching Cancel deactivates only its referenced alert",
     cancelResult.action === "CANCELLED" &&
       !cancelResult.state.activeAlerts[originalKey] &&
-      Boolean(cancelResult.state.activeAlerts[otherAlertKey])
+      Boolean(cancelResult.state.activeAlerts[otherAlertKey]) &&
+      cancelResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE" &&
+      cancelResult.state.reviewCandidates[otherAlertKey].reviewStatus ===
+        "PENDING REVIEW"
   );
 
   const unmatchedCancel = makeRecord({
@@ -875,7 +1153,9 @@ function runCapSelfTests() {
     "Unmatched Cancel leaves all active alerts unchanged",
     unmatchedCancelResult.action === "CANCELLATION_REVIEW" &&
       JSON.stringify(unmatchedCancelResult.state.activeAlerts) ===
-        JSON.stringify(updatedTwoAlertResult.state.activeAlerts)
+        JSON.stringify(updatedTwoAlertResult.state.activeAlerts) &&
+      JSON.stringify(unmatchedCancelResult.state.reviewCandidates) ===
+        JSON.stringify(updatedTwoAlertResult.state.reviewCandidates)
   );
 
   const expired = makeRecord({ identifier: "CAP-EXPIRED", timeClassification: "EXPIRED" });
@@ -884,7 +1164,8 @@ function runCapSelfTests() {
   check(
     "Expired alert is not added to active state",
     expiredResult.action === "EXPIRED" &&
-      Object.keys(expiredResult.state.activeAlerts).length === 0
+      Object.keys(expiredResult.state.activeAlerts).length === 0 &&
+      Object.keys(expiredResult.state.reviewCandidates).length === 0
   );
 
   let failures = 0;
@@ -1114,6 +1395,20 @@ if (process.argv.includes("--test-state")) {
   runLocationSelfTests();
 } else if (process.argv.includes("--test-cap")) {
   runCapSelfTests();
+} else if (process.argv.includes("--review-queue")) {
+  readReviewCandidates()
+    .then(reviewCandidates => {
+      console.log(JSON.stringify({
+        mode: "READ-ONLY REVIEW QUEUE",
+        publicationStatus: "NOT PUBLISHED",
+        notificationStatus: "NOT SENT",
+        candidates: Object.values(reviewCandidates)
+      }, null, 2));
+    })
+    .catch(error => {
+      console.error("REVIEW QUEUE READ FAILED:", error.message);
+      process.exitCode = 1;
+    });
 } else {
   main().catch(error => {
     console.error("DRY RUN FAILED:", error.message);
