@@ -528,7 +528,17 @@ function findReferencedRssItems(items, references) {
   });
 }
 
+function capMatchesReference(cap, reference) {
+  if (!cap || !reference) {
+    return false;
+  }
 
+  return (
+    cap.sender === reference.sender &&
+    cap.identifier === reference.identifier &&
+    cap.sent === reference.sent
+  );
+}
 
 
 function analyzeBatch(records) {
