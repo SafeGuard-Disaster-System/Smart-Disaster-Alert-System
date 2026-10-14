@@ -25,3 +25,6 @@ jobs:
 
       - name: Run synthetic CAP tests
         run: node scripts/sachet-check.js --test-cap
+
+      - name: Run persistent state tests
+        run: node scripts/sachet-check.js --test-state
