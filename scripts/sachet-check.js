@@ -1240,11 +1240,13 @@ const candidates = selectCapCandidates(
   validItems,
   initialCheckLimit
 );
-
-  console.log(
-      "Reference matching: candidate helper available; " +
-    "exact CAP sender and identifier verification not yet integrated."
-  );
+ 
+console.log(
+  `Initial CAP request budget: ${initialCheckLimit}`
+);
+console.log(
+  `Reserved reference-check budget: ${REFERENCE_CHECK_RESERVE}`
+);
 
   console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
