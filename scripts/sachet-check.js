@@ -1016,6 +1016,27 @@ async function main() {
 
   analyzeBatch(results);
 
+  // Persistent-state preview only: do not save or publish alerts.
+  const state = await loadCapState();
+  let previewState = state;
+  const stateActions = {};
+
+  for (const record of results) {
+    const result = applyCapMessageToState(previewState, record);
+    previewState = result.state;
+
+    stateActions[result.action] =
+      (stateActions[result.action] || 0) + 1;
+  }
+
+  console.log("\n=== PERSISTENT STATE PREVIEW ===");
+  console.log(`Previously processed messages: ${Object.keys(state.processedMessages).length}`);
+  console.log(`Previously active alerts: ${Object.keys(state.activeAlerts).length}`);
+  console.log(`Preview active alerts: ${Object.keys(previewState.activeAlerts).length}`);
+  console.log("State actions:", JSON.stringify(stateActions));
+  console.log("State saved: NO");
+  console.log("Firebase writes: 0");
+
   for (const record of results) {
     console.log("\n--- CAP RECORD ---");
     console.log(`Title: ${record.title}`);
