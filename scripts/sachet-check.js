@@ -1081,6 +1081,47 @@ function makeRecord(overrides = {}) {
     ).length === 0
   );
   
+  const exactMatchCap = {
+    sender: "IMD-Patna",
+    identifier: "IN-1791976061962016_59",
+    sent: "2026-10-14T16:37:13+05:30"
+  };
+
+  const exactMatchReference = {
+    sender: "IMD-Patna",
+    identifier: "IN-1791976061962016_59",
+    sent: "2026-10-14T16:37:13+05:30"
+  };
+
+  check(
+    "Exact CAP reference match is accepted",
+    capMatchesReference(exactMatchCap, exactMatchReference)
+  );
+
+  check(
+    "CAP reference with wrong sender is rejected",
+    !capMatchesReference(
+      { ...exactMatchCap, sender: "Wrong-Sender" },
+      exactMatchReference
+    )
+  );
+
+  check(
+    "CAP reference with wrong identifier is rejected",
+    !capMatchesReference(
+      { ...exactMatchCap, identifier: "IN-WRONG_59" },
+      exactMatchReference
+    )
+  );
+
+  check(
+    "CAP reference with wrong sent time is rejected",
+    !capMatchesReference(
+      { ...exactMatchCap, sent: "2026-10-14T16:38:13+05:30" },
+      exactMatchReference
+    )
+  );
+  
   const referencedOriginalId = "CAP-1";
 
   const prioritizedCandidates = selectCapCandidates(
