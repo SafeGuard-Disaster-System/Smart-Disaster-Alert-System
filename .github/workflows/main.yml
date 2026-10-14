@@ -8,13 +8,24 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: safeguard-sachet-state
+  cancel-in-progress: false
+
 jobs:
   check-feed:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out repository
+      - name: Check out main project
         uses: actions/checkout@v4
+
+      - name: Check out persistent state branch
+        uses: actions/checkout@v4
+        with:
+          ref: safeguard-state
+          path: state
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
