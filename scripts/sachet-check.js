@@ -763,6 +763,375 @@ function runLocationSelfTests() {
 
 function runCapSelfTests() {
   const tests = [];
+  const c  // An update must pass location screening before changing an alert.
+    if (
+      record.locationClassification !==
+      "POSSIBLE LOCAL MATCH — VERIFY"
+    ) {
+      return {
+        state: nextState,
+        action: "UPDATE_LOCATION_REVIEW"
+      };
+    }
+
+    if (record.timeClassification === "EXPIRED") {
+      delete nextState.activeAlerts[original];
+    } else {
+      nextState.activeAlerts[original] = {
+        ...nextState.activeAlerts[original],
+        ...record,
+        originalKey: original
+      };
+    }
+
+    markProcessed(nextState, messageKey, record);
+
+    return {
+      state: nextState,
+      action: record.timeClassification === "EXPIRED"
+        ? "EXPIRED"
+        : "UPDATED"
+    };
+  }
+
+    if (record.timeClassification === "EXPIRED") {
+    markProcessed(nextState, messageKey, record);
+    return { state: nextState, action: "EXPIRED" };
+  }
+
+  if (
+    record.msgType !== "Alert" ||
+    record.timeClassification !==
+      "UNEXPIRED — manual review required"
+  ) {
+    return { state: nextState, action: "REVIEW" };
+  }
+
+  // Location screening is preliminary, not geographic verification.
+  // Only possible local matches may enter state for manual review.
+  if (
+    record.locationClassification !==
+    "POSSIBLE LOCAL MATCH — VERIFY"
+  ) {
+    return {
+      state: nextState,
+      action: "LOCATION_REVIEW"
+    };
+  }
+
+  nextState.activeAlerts[alertKey] = {
+    ...record,
+    originalKey: alertKey
+  };
+
+  markProcessed(nextState, messageKey, record);
+  return { state: nextState, action: "NEW_ALERT_REVIEW" };
+}
+
+function markProcessed(state, messageKey, record) {
+  state.processedMessages[messageKey] = {
+    sender: record.sender,
+    identifier: record.identifier,
+    sent: record.sent,
+    msgType: record.msgType
+  };
+}
+
+
+
+function selectCapCandidates(
+  items,
+  maxChecks = MAX_CAP_CHECKS,
+  referencedIds = []
+) {
+  const rankedItems = items
+    .map((item, index) => ({
+      ...item,
+      publishedAt: Date.parse(item.pubDate),
+      originalIndex: index
+    }))
+    .sort((a, b) => {
+      const aTime = Number.isNaN(a.publishedAt)
+        ? -Infinity
+        : a.publishedAt;
+      const bTime = Number.isNaN(b.publishedAt)
+        ? -Infinity
+        : b.publishedAt;
+
+      return bTime - aTime || a.originalIndex - b.originalIndex;
+    });
+
+  const referenced = new Set(referencedIds);
+
+  const priorityItems = rankedItems.filter(item =>
+    referenced.has(item.id)
+  );
+
+  const otherItems = rankedItems.filter(item =>
+    !referenced.has(item.id)
+  );
+
+  return [...priorityItems, ...otherItems].slice(0, maxChecks);
+}
+
+
+
+
+function findReferencedRssItems(items, references) {
+  const referencedBases = new Set();
+
+  for (const ref of references) {
+    if (!ref || typeof ref.identifier !== "string") {
+      continue;
+    }
+
+    const match = ref.identifier.match(/^IN-(\d+)_\d+$/);
+
+    if (match) {
+      referencedBases.add(match[1]);
+    }
+  }
+
+  return items.filter(item => {
+    if (!item.id) return false;
+
+    return referencedBases.has(String(item.id).trim());
+  });
+}
+
+function selectUnfetchedReferenceCandidates(
+  items,
+  references,
+  alreadyFetchedItems,
+  maxChecks
+) {
+  const alreadyFetchedLinks = new Set(
+    alreadyFetchedItems.map(item => item.link).filter(Boolean)
+  );
+
+  const referencedItems = findReferencedRssItems(items, references);
+  const unfetchedItems = referencedItems.filter(
+    item => item.link && !alreadyFetchedLinks.has(item.link)
+  );
+
+  const uniqueLinks = [...new Map(
+    unfetchedItems.map(item => [item.link, item])
+  ).values()];
+  return selectCapCandidates(uniqueLinks, maxChecks);
+}
+
+function capMatchesReference(cap, reference) {
+  if (!cap || !reference) {
+    return false;
+  }
+
+  return (
+    cap.sender === reference.sender &&
+    cap.identifier === reference.identifier &&
+    cap.sent === reference.sent
+  );
+}
+
+
+function analyzeBatch(records) {
+  const seenIds = new Set();
+  const seenMessages = new Set();
+
+  for (const record of records) {
+    const duplicateKey = `${record.sender}|${record.identifier}`;
+    const messageKey = `${duplicateKey}|${record.sent}`;
+
+    record.duplicateClassification = seenIds.has(duplicateKey)
+      ? "DUPLICATE ID IN THIS BATCH — REVIEW"
+      : "ID FIRST SEEN IN THIS BATCH";
+
+    record.messageClassification = seenMessages.has(messageKey)
+      ? "DUPLICATE MESSAGE — REVIEW"
+      : "MESSAGE FIRST SEEN IN THIS BATCH";
+
+    seenIds.add(duplicateKey);
+    seenMessages.add(messageKey);
+
+    if (record.timeClassification === "UPDATE — REVIEW") {
+      record.messageClassification = "UPDATE — LINK TO ORIGINAL";
+    } else if (
+      record.timeClassification === "CANCELLATION — REVIEW"
+    ) {
+      record.messageClassification = "CANCELLATION — REVIEW ORIGINAL";
+    }
+
+    if (record.references.length > 0) {
+      record.messageClassification +=
+        `; references ${record.references.map(ref => ref.identifier).join(", ")}`;
+    }
+  }
+}
+
+
+async function runStateSelfTests() {
+  const assert = require("node:assert/strict");
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "safeguard-state-test-")
+  );
+
+  const testFile = path.join(tempDir, "alert-state.json");
+
+  const validState = {
+    version: 1,
+    processedMessages: {},
+    activeAlerts: {},
+    lastUpdated: null
+  };
+
+  let passed = 0;
+
+  async function check(name, test) {
+    try {
+      await test();
+      passed++;
+      console.log(`PASS: ${name}`);
+    } catch (error) {
+      console.error(`FAIL: ${name} — ${error.message}`);
+      throw error;
+    }
+  }
+
+  try {
+    await check("Valid state loads", async () => {
+      await fs.writeFile(testFile, JSON.stringify(validState));
+      const loaded = await loadCapState(testFile);
+      assert.deepEqual(loaded, validState);
+    });
+
+    await check("Missing file is rejected", async () => {
+      await assert.rejects(
+        loadCapState(path.join(tempDir, "missing.json")),
+        /missing/i
+      );
+    });
+
+    await check("Invalid JSON is rejected", async () => {
+      await fs.writeFile(testFile, "{invalid json");
+      await assert.rejects(
+        loadCapState(testFile),
+        /invalid JSON/i
+      );
+    });
+
+    await check("Invalid structure is rejected", async () => {
+      await fs.writeFile(
+        testFile,
+        JSON.stringify({ version: 99 })
+      );
+      await assert.rejects(
+        loadCapState(testFile),
+        /invalid structure/i
+      );
+    });
+
+    await check("Save and load round trip succeeds", async () => {
+      await saveCapState(validState, testFile);
+      const loaded = await loadCapState(testFile);
+
+      assert.equal(loaded.version, 1);
+      assert.deepEqual(loaded.processedMessages, {});
+      assert.deepEqual(loaded.activeAlerts, {});
+      assert.ok(typeof loaded.lastUpdated === "string");
+      assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
+    });
+
+    console.log(`State tests passed: ${passed}/5`);
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function runPersistenceSelfTests() {
+  const assert = require("node:assert/strict");
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "safeguard-persistence-test-")
+  );
+  const testFile = path.join(tempDir, "alert-state.json");
+
+  try {
+    let state = createEmptyCapState();
+    await saveCapState(state, testFile);
+
+    const alert = {
+      sender: "Synthetic-Test-Sender",
+      identifier: "SYNTHETIC-001",
+      sent: "2026-10-14T10:00:00Z",
+      msgType: "Alert",
+      event: "Synthetic Rain",
+      timeClassification: "UNEXPIRED — manual review required",
+      locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
+      references: []
+    };
+
+    // First run: process and persist a synthetic alert.
+    let result = applyCapMessageToState(state, alert);
+    assert.equal(result.action, "NEW_ALERT_REVIEW");
+    await saveCapState(result.state, testFile);
+
+    // Second run: reload state and detect the same message.
+    state = await loadCapState(testFile);
+    result = applyCapMessageToState(state, alert);
+    assert.equal(result.action, "DUPLICATE");
+
+    // Verify that the stored alert survived reloading.
+    assert.equal(
+      Object.keys(state.activeAlerts).length,
+      1
+    );
+
+    console.log("PASS: Synthetic alert saved and reloaded");
+    console.log("PASS: Repeated message detected across runs");
+    console.log("PASS: No live alerts or Firebase writes used");
+    console.log("Persistence tests passed: 3/3");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+function runLocationSelfTests() {
+  const tests = [
+    ["Navi Mumbai", "Navi Mumbai", "POSSIBLE LOCAL MATCH — VERIFY"],
+    ["Kalamboli", "Kalamboli", "POSSIBLE LOCAL MATCH — VERIFY"],
+    ["Panvel", "Panvel", "POSSIBLE LOCAL MATCH — VERIFY"],
+    ["Bihar", "Bihar", "NO LOCAL KEYWORD MATCH"],
+    ["Isolated places", "Isolated places", "NEEDS MANUAL REVIEW"],
+    ["Local name only in description", "Bihar", "NO LOCAL KEYWORD MATCH"],
+    ["Thane alone", "Thane", "NO LOCAL KEYWORD MATCH"],
+    ["Vague area", "Your district", "NEEDS MANUAL REVIEW"],
+    ["Nearby localities in area", "Kalamboli, Panvel", "POSSIBLE LOCAL MATCH — VERIFY"],
+    ["Unrelated place", "An unrelated district", "NO LOCAL KEYWORD MATCH"]
+  ];
+
+  let failures = 0;
+  console.log("=== SafeGuard Location Self-Tests ===");
+  console.log("Mode: LOCAL TESTS ONLY");
+  console.log("SACHET requests: 0");
+  console.log("Firebase writes: 0");
+
+  for (const [name, area, expected] of tests) {
+    const actual = classifyLocation(area);
+    const passed = actual === expected;
+    console.log(`${passed ? "PASS" : "FAIL"}: ${name}`);
+    console.log(`  Expected: ${expected}`);
+    console.log(`  Actual:   ${actual}`);
+    if (!passed) failures++;
+  }
+
+  console.log(`Results: ${tests.length - failures}/${tests.length} passed`);
+  if (failures > 0) {
+    process.exitCode = 1;
+  } else {
+    console.log("All location tests passed.");
+  }
+}
+
+function runCapSelfTests() {
+  const tests = [];
   const check = (name, passed) => tests.push({ name, passed });
 
 function makeRecord(overrides = {}) {
