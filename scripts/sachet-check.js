@@ -1142,6 +1142,48 @@ function makeRecord(overrides = {}) {
     )
   );
   
+  const alreadyFetchedReferenceItems = [
+    {
+      id: "1791976061962016",
+      link: "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=already-fetched"
+    }
+  ];
+
+  const referenceItemsForSelection = [
+    ...referenceTestItems,
+    {
+      id: "1791976061962016",
+      title: "Duplicate RSS entry",
+      link: "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=not-fetched"
+    }
+  ];
+
+  const unfetchedReferenceCandidates =
+    selectUnfetchedReferenceCandidates(
+      referenceItemsForSelection,
+      referenceTestRefs,
+      alreadyFetchedReferenceItems,
+      5
+    );
+
+  check(
+    "Reference selection excludes already-fetched RSS links",
+    unfetchedReferenceCandidates.length === 1 &&
+      unfetchedReferenceCandidates[0].link.endsWith(
+        "identifier=not-fetched"
+      )
+  );
+
+  check(
+    "Reference selection respects its request limit",
+    selectUnfetchedReferenceCandidates(
+      referenceItemsForSelection,
+      referenceTestRefs,
+      [],
+      0
+    ).length === 0
+  );
+  
   const referencedOriginalId = "CAP-1";
 
   const prioritizedCandidates = selectCapCandidates(
