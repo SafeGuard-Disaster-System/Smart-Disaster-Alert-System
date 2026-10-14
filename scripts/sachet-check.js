@@ -1068,7 +1068,17 @@ async function main() {
   let previewState = state;
   const stateActions = {};
 
-  for (const record of results) {
+  // Process older CAP messages first so referenced originals in this batch
+  // are available before their updates or cancellations.
+  const stateProcessingRecords = [...results].sort((a, b) => {
+    const aSent = Date.parse(a.sent);
+    const bSent = Date.parse(b.sent);
+    const aTime = Number.isNaN(aSent) ? Infinity : aSent;
+    const bTime = Number.isNaN(bSent) ? Infinity : bSent;
+    return aTime - bTime;
+  });
+
+  for (const record of stateProcessingRecords) {
     const result = applyCapMessageToState(previewState, record);
     previewState = result.state;
 
