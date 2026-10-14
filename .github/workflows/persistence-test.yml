@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 jobs:
-  test-state-checkout:
+  test-state-write:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,18 +19,19 @@ jobs:
         with:
           ref: safeguard-state
           path: state
-          persist-credentials: false
+          token: ${{ secrets.STATE_BRANCH_TOKEN }}
+          persist-credentials: true
 
-      - name: Verify persistent state file
+      - name: Verify existing state file
         run: |
           node -e "
           const fs = require('fs');
-          const path = 'state/alert-state.json';
-          if (!fs.existsSync(path)) {
-            console.error('FAIL: State file is missing');
+          const file = 'state/alert-state.json';
+          if (!fs.existsSync(file)) {
+            console.error('FAIL: alert-state.json is missing');
             process.exit(1);
           }
-          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const state = JSON.parse(fs.readFileSync(file, 'utf8'));
           if (
             state.version !== 1 ||
             !state.processedMessages ||
@@ -39,6 +40,46 @@ jobs:
             console.error('FAIL: Invalid state structure');
             process.exit(1);
           }
-          console.log('PASS: Persistent state file exists and is valid');
-          console.log('State version:', state.version);
+          console.log('PASS: Existing alert state is valid');
+          "
+
+      - name: Write harmless persistence marker
+        working-directory: state
+        run: |
+          node -e "
+          const fs = require('fs');
+          const file = 'persistence-check.json';
+          const marker = {
+            test: 'SafeGuard state branch write access',
+            verifiedAt: new Date().toISOString()
+          };
+          fs.writeFileSync(file, JSON.stringify(marker, null, 2) + '\n');
+          console.log('PASS: Marker file prepared');
+          "
+
+      - name: Commit and push persistence marker
+        working-directory: state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add persistence-check.json
+          git commit -m "Test SafeGuard state branch write access" || {
+            echo "No changes to commit"
+            exit 0
+          }
+          git push origin HEAD:safeguard-state
+
+      - name: Verify marker locally
+        working-directory: state
+        run: |
+          node -e "
+          const fs = require('fs');
+          const marker = JSON.parse(
+            fs.readFileSync('persistence-check.json', 'utf8')
+          );
+          if (marker.test !== 'SafeGuard state branch write access') {
+            console.error('FAIL: Marker verification failed');
+            process.exit(1);
+          }
+          console.log('PASS: Marker verified');
           "
