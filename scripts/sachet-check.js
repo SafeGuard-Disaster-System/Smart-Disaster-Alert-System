@@ -1021,25 +1021,6 @@ async function main() {
     item => item.link && validCapUrl(item.link)
   );
 
-  console.log("\n=== RSS LINK DIAGNOSTICS ===");
-  console.log(`RSS items parsed: ${items.length}`);
-
-  for (const item of items) {
-    console.log(`Title: ${item.title}`);
-    console.log(`Raw link: ${JSON.stringify(item.link)}`);
-
-    try {
-      const url = new URL(item.link);
-      console.log(`Hostname: ${url.hostname}`);
-      console.log(`Path: ${url.pathname}`);
-      console.log(`Accepted CAP link: ${validCapUrl(item.link)}`);
-    } catch {
-      console.log("URL parsing: FAILED");
-    }
-
-    console.log("---");
-  }
-
   const candidates = validItems
     .map((item, index) => ({
       ...item,
