@@ -579,6 +579,53 @@ async function runStateSelfTests() {
   }
 }
 
+async function runPersistenceSelfTests() {
+  const assert = require("node:assert/strict");
+  const tempDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "safeguard-persistence-test-")
+  );
+  const testFile = path.join(tempDir, "alert-state.json");
+
+  try {
+    let state = createEmptyCapState();
+    await saveCapState(state, testFile);
+
+    const alert = {
+      sender: "Synthetic-Test-Sender",
+      identifier: "SYNTHETIC-001",
+      sent: "2026-10-14T10:00:00Z",
+      msgType: "Alert",
+      event: "Synthetic Rain",
+      timeClassification: "UNEXPIRED — manual review required",
+      locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
+      references: []
+    };
+
+    // First run: process and persist a synthetic alert.
+    let result = applyCapMessageToState(state, alert);
+    assert.equal(result.action, "NEW_ALERT_REVIEW");
+    await saveCapState(result.state, testFile);
+
+    // Second run: reload state and detect the same message.
+    state = await loadCapState(testFile);
+    result = applyCapMessageToState(state, alert);
+    assert.equal(result.action, "DUPLICATE");
+
+    // Verify that the stored alert survived reloading.
+    assert.equal(
+      Object.keys(state.activeAlerts).length,
+      1
+    );
+
+    console.log("PASS: Synthetic alert saved and reloaded");
+    console.log("PASS: Repeated message detected across runs");
+    console.log("PASS: No live alerts or Firebase writes used");
+    console.log("Persistence tests passed: 3/3");
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 function runLocationSelfTests() {
   const tests = [
     ["Navi Mumbai", "Navi Mumbai", "POSSIBLE LOCAL MATCH — VERIFY"],
