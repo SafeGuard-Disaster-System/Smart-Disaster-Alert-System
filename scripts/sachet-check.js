@@ -1332,6 +1332,7 @@ console.log(
         try {
           const record = await checkCap(item);
           results.push(record);
+          return record;
         } catch (error) {
           errors.push({ title: item.title, error: error.message });
           console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
