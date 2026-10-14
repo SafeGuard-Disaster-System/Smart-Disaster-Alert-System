@@ -590,7 +590,53 @@ async function runStateSelfTests() {
       assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
     });
 
-    console.log(`State tests passed: ${passed}/5`);
+    await check("Load failures preserve state and skip saving", async () => {
+      const previousExitCode = process.exitCode;
+      let saveCalls = 0;
+      const failIfFetched = async () => {
+        throw new Error("Unexpected SACHET request during state failure test");
+      };
+      const invalidStates = [
+        "{invalid json",
+        JSON.stringify({ version: 99 })
+      ];
+
+      try {
+        for (const contents of invalidStates) {
+          await fs.writeFile(testFile, contents);
+          process.exitCode = 0;
+
+          await main({
+            loadState: () => loadCapState(testFile),
+            fetchFeed: failIfFetched,
+            saveState: async () => {
+              saveCalls++;
+              return true;
+            }
+          });
+
+          assert.equal(process.exitCode, 1);
+          assert.equal(await fs.readFile(testFile, "utf8"), contents);
+        }
+
+        process.exitCode = 0;
+        await main({
+          loadState: () => loadCapState(tempDir),
+          fetchFeed: failIfFetched,
+          saveState: async () => {
+            saveCalls++;
+            return true;
+          }
+        });
+
+        assert.equal(process.exitCode, 1);
+        assert.equal(saveCalls, 0);
+      } finally {
+        process.exitCode = previousExitCode === undefined ? 0 : previousExitCode;
+      }
+    });
+
+    console.log(`State tests passed: ${passed}/6`);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -748,13 +794,26 @@ function runCapSelfTests() {
   else console.log("All synthetic CAP tests passed.");
 }
 
-async function main() {
+async function main({
+  loadState = loadCapState,
+  saveState = saveCapState,
+  fetchFeed = fetchText
+} = {}) {
   console.log("=== SafeGuard CAP Message Handling Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
   console.log(`CAP request limit: ${MAX_CAP_CHECKS}`);
   console.log(`Concurrent requests: ${CONCURRENCY}`);
 
-  const rss = await fetchText(FEED_URL);
+  let state;
+  try {
+    state = await loadState();
+  } catch (err) {
+    console.error("Failed to load existing state:", err.message);
+    process.exitCode = 1;
+    return;
+  }
+
+  const rss = await fetchFeed(FEED_URL);
   const items = parseRssItems(rss);
   const validItems = items.filter(item => item.link && validCapUrl(item.link));
   const initialCheckLimit = MAX_CAP_CHECKS - REFERENCE_CHECK_RESERVE;
@@ -848,15 +907,6 @@ async function main() {
 
   analyzeBatch(results);
 
-  let state;
-  try {
-    state = await loadCapState();
-  } catch (err) {
-    console.error("Failed to load existing state:", err.message);
-    process.exitCode = 1;
-    state = createEmptyCapState();
-  }
-
   let previewState = state;
   const stateActions = {};
   const stateProcessingRecords = [...results].sort((a, b) => {
@@ -881,7 +931,7 @@ async function main() {
 
   let stateSaved = false;
   try {
-    stateSaved = await saveCapState(previewState);
+    stateSaved = await saveState(previewState);
   } catch (err) {
     console.warn("State save failed:", err.message);
     stateSaved = false;
