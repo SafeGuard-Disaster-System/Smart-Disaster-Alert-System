@@ -466,6 +466,28 @@ function markProcessed(state, messageKey, record) {
   };
 }
 
+
+function selectCapCandidates(items, maxChecks = MAX_CAP_CHECKS) {
+  return items
+    .map((item, index) => ({
+      ...item,
+      publishedAt: Date.parse(item.pubDate),
+      originalIndex: index
+    }))
+    .sort((a, b) => {
+      const aTime = Number.isNaN(a.publishedAt)
+        ? -Infinity
+        : a.publishedAt;
+      const bTime = Number.isNaN(b.publishedAt)
+        ? -Infinity
+        : b.publishedAt;
+
+      return bTime - aTime || a.originalIndex - b.originalIndex;
+    })
+    .slice(0, maxChecks);
+}
+
+
 function analyzeBatch(records) {
   const seenIds = new Set();
   const seenMessages = new Set();
@@ -936,6 +958,28 @@ function makeRecord(overrides = {}) {
     "Missing and invalid dates sort last",
     sortedItems[2].id === "missing" && sortedItems[3].id === "invalid"
   );
+
+  
+  const candidateItems = Array.from({ length: 35 }, (_, index) => ({
+    id: `CAP-${index + 1}`,
+    pubDate: new Date(
+      Date.UTC(2026, 9, 14, 12, index)
+    ).toUTCString()
+  }));
+
+  const selectedCandidates = selectCapCandidates(candidateItems, 30);
+
+  check(
+    "Candidate selection respects the request limit",
+    selectedCandidates.length === 30
+  );
+
+  check(
+    "Candidate selection keeps newest entries first",
+    selectedCandidates[0].id === "CAP-35" &&
+      selectedCandidates[29].id === "CAP-6"
+  );
+
 
   const duplicates = [
     makeRecord(),
