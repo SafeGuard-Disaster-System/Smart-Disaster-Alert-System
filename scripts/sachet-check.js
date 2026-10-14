@@ -226,6 +226,90 @@ function createEmptyCapState() {
   };
 }
 
+
+const fs = require("node:fs/promises");
+const path = require("node:path");
+
+const STATE_FILE = path.join(
+  process.cwd(),
+  "state",
+  "alert-state.json"
+);
+
+async function loadCapState() {
+  let raw;
+
+  try {
+    raw = await fs.readFile(STATE_FILE, "utf8");
+  } catch (error) {
+    
+  if (error.code === "ENOENT") {
+    throw new Error(
+      "Persistent state file is missing; refusing to initialize empty state."
+    );
+  }
+
+    throw error;
+  }
+
+  let state;
+
+  try {
+    state = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      "State file contains invalid JSON; refusing to reset state."
+    );
+  }
+
+  if (
+    !state ||
+    state.version !== 1 ||
+    !state.processedMessages ||
+    typeof state.processedMessages !== "object" ||
+    Array.isArray(state.processedMessages) ||
+    !state.activeAlerts ||
+    typeof state.activeAlerts !== "object" ||
+    Array.isArray(state.activeAlerts) ||
+    !(
+      state.lastUpdated === null ||
+      typeof state.lastUpdated === "string"
+    )
+  ) {
+    throw new Error(
+      "State file has an invalid structure; refusing to reset state."
+    );
+  }
+
+  return state;
+}
+
+async function saveCapState(state) {
+  if (
+    !state ||
+    state.version !== 1 ||
+    !state.processedMessages ||
+    !state.activeAlerts
+  ) {
+    throw new Error("Refusing to save invalid CAP state.");
+  }
+
+  const updatedState = {
+    ...state,
+    lastUpdated: new Date().toISOString()
+  };
+
+  const tempFile = `${STATE_FILE}.tmp`;
+
+  await fs.writeFile(
+    tempFile,
+    `${JSON.stringify(updatedState, null, 2)}\n`,
+    { encoding: "utf8", flag: "w" }
+  );
+
+  await fs.rename(tempFile, STATE_FILE);
+}
+
 function applyCapMessageToState(state, record) {
   const nextState = JSON.parse(JSON.stringify(state));
   const messageKey =
