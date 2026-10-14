@@ -505,17 +505,29 @@ function selectCapCandidates(
 
 
 
+
 function findReferencedRssItems(items, references) {
-  const referencedIds = new Set(
-    references.map(ref => ref.identifier)
-  );
+  const referencedBases = new Set();
+
+  for (const ref of references) {
+    if (!ref || typeof ref.identifier !== "string") {
+      continue;
+    }
+
+    const match = ref.identifier.match(/^IN-(\d+)_\d+$/);
+
+    if (match) {
+      referencedBases.add(match[1]);
+    }
+  }
 
   return items.filter(item => {
     if (!item.id) return false;
 
-    return referencedIds.has(item.id);
+    return referencedBases.has(String(item.id).trim());
   });
 }
+
 
 
 
