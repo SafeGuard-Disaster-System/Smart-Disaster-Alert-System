@@ -1321,41 +1321,41 @@ console.log(
   let capRequests = 0;
 
   
-  async function fetchCandidates(batch) {
-    let nextIndex = 0;
-    const batchResults = [];
+async function fetchCandidates(batch) {
+  let nextIndex = 0;
+  const batchResults = [];
 
-    async function worker() {
-      while (nextIndex < batch.length) {
-        const item = batch[nextIndex++];
+  async function worker() {
+    while (nextIndex < batch.length) {
+      const item = batch[nextIndex++];
 
-        // Count every attempted request, including failures, before starting it.
-        if (capRequests >= MAX_CAP_CHECKS) return;
-        capRequests++;
+      // Count every attempted request, including failures, before starting it.
+      if (capRequests >= MAX_CAP_CHECKS) return;
+      capRequests++;
 
-        if (item.link) checkedLinks.add(item.link);
+      if (item.link) checkedLinks.add(item.link);
 
-        try {
-          const record = await checkCap(item);
-          results.push(record);
-          batchResults.push(record);
-        } catch (error) {
-          errors.push({ title: item.title, error: error.message });
-          console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
-          // Continue to the next item after a failed request.
-        }
+      try {
+        const record = await checkCap(item);
+        results.push(record);
+        batchResults.push(record);
+      } catch (error) {
+        errors.push({ title: item.title, error: error.message });
+        console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
+        // Continue to the next item after a failed request.
       }
     }
-
-    await Promise.all(
-      Array.from(
-        { length: Math.min(CONCURRENCY, batch.length) },
-        () => worker()
-      )
-    );
-
-    return batchResults;
   }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(CONCURRENCY, batch.length) },
+      () => worker()
+    )
+  );
+    
+  return batchResults;
+}
 
     const out = await Promise.all(Array.from(
       { length: Math.min(CONCURRENCY, batch.length) },
