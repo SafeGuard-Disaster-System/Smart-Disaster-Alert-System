@@ -1152,17 +1152,6 @@ async function main() {
 
   const rss = await fetchText(FEED_URL);
   const items = parseRssItems(rss);
-  
-  console.log("\n=== RSS ID DIAGNOSTIC ===");
-  console.log(`RSS items: ${items.length}`);
-
-  for (const item of items.slice(0, 5)) {
-    console.log(`RSS GUID: ${item.id}`);
-    console.log(`RSS title: ${item.title}`);
-    console.log(`CAP URL valid: ${validCapUrl(item.link)}`);
-  }
-
-  console.log("Diagnostic only: no extra CAP requests made.");
 
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
