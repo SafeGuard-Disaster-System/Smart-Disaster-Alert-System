@@ -1105,18 +1105,10 @@ async function main() {
     item => item.link && validCapUrl(item.link)
   );
 
-  const candidates = validItems
-    .map((item, index) => ({
-      ...item,
-      publishedAt: Date.parse(item.pubDate),
-      originalIndex: index
-    }))
-    .sort((a, b) => {
-      const aTime = Number.isNaN(a.publishedAt) ? -Infinity : a.publishedAt;
-      const bTime = Number.isNaN(b.publishedAt) ? -Infinity : b.publishedAt;
-      return bTime - aTime || a.originalIndex - b.originalIndex;
-    })
-    .slice(0, MAX_CAP_CHECKS);
+  const candidates = selectCapCandidates(
+    validItems,
+    MAX_CAP_CHECKS
+  );
 
   console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
