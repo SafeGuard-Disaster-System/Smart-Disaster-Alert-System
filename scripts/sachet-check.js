@@ -1011,16 +1011,22 @@ function makeRecord(overrides = {}) {
       selectedCandidates[29].id === "CAP-6"
   );
 
-  const referenceTestItems = [
-    { id: "CAP-ORIGINAL", title: "Original alert" },
-    { id: "CAP-OTHER", title: "Unrelated alert" }
+    const referenceTestItems = [
+    {
+      id: "1791976061962016",
+      title: "RSS entry with matching numeric base"
+    },
+    {
+      id: "1791974979048007",
+      title: "Unrelated RSS entry"
+    }
   ];
 
   const referenceTestRefs = [
     {
-      sender: "Test-Sender",
-      identifier: "CAP-ORIGINAL",
-      sent: "2026-10-13T09:00:00Z"
+      sender: "IMD-Patna",
+      identifier: "IN-1791976061962016_59",
+      sent: "2026-10-14T16:37:13+05:30"
     }
   ];
 
@@ -1030,21 +1036,26 @@ function makeRecord(overrides = {}) {
   );
 
   check(
-    "Referenced RSS original is found by exact identifier",
+    "RSS GUID base can be identified from CAP reference",
     foundReferencedItems.length === 1 &&
-      foundReferencedItems[0].id === "CAP-ORIGINAL"
+      foundReferencedItems[0].id === "1791976061962016"
   );
 
   check(
     "Unrelated RSS entry is not selected",
-    !foundReferencedItems.some(item => item.id === "CAP-OTHER")
+    !foundReferencedItems.some(
+      item => item.id === "1791974979048007"
+    )
   );
 
   check(
     "Missing referenced original returns no match",
     findReferencedRssItems(
       referenceTestItems,
-      [{ sender: "Test-Sender", identifier: "CAP-MISSING" }]
+      [{
+        sender: "IMD-Missing",
+        identifier: "IN-9999999999999999_59"
+      }]
     ).length === 0
   );
   
