@@ -141,7 +141,6 @@ function classifyTime(cap) {
   const type = (cap.msgType || "").toLowerCase();
 
   if (type === "cancel") return "CANCELLATION — REVIEW";
-  if (type === "update") return "UPDATE — REVIEW";
 
   if (type === "ack" || type === "error") {
     return `REVIEW — message type ${cap.msgType}`;
@@ -151,7 +150,7 @@ function classifyTime(cap) {
     return `REVIEW — status ${cap.status}`;
   }
 
-  if (type !== "alert") {
+  if (type !== "alert" && type !== "update") {
     return `REVIEW — message type ${cap.msgType || "missing"}`;
   }
 
@@ -166,6 +165,8 @@ function classifyTime(cap) {
   const effective = parseDate(cap.effective);
   if (effective === null) return "REVIEW — effective time invalid";
   if (effective > Date.now()) return "FUTURE — not active yet";
+
+  if (type === "update") return "UPDATE — REVIEW";
 
   return "UNEXPIRED — manual review required";
 }
@@ -349,8 +350,10 @@ function applyCapMessageToState(state, record) {
 
   const references = Array.isArray(record.references) ? record.references : [];
   const original = references
-    .map(ref => `${ref.sender}|${ref.identifier}`)
-    .find(key => nextState.activeAlerts[key]);
+    .map(ref => Object.entries(nextState.activeAlerts)
+      .find(([, active]) => capMatchesReference(active, ref))?.[0] || null
+    )
+    .find(Boolean);
 
   const alertKey = `${record.sender}|${record.identifier}`;
 
@@ -369,6 +372,10 @@ function applyCapMessageToState(state, record) {
       return { state: nextState, action: "UPDATE_REVIEW" };
     }
 
+    if (record.timeClassification !== "UPDATE — REVIEW") {
+      return { state: nextState, action: "UPDATE_TIME_REVIEW" };
+    }
+
     if (record.locationClassification !== "POSSIBLE LOCAL MATCH — VERIFY") {
       return {
         state: nextState,
@@ -376,22 +383,15 @@ function applyCapMessageToState(state, record) {
       };
     }
 
-    if (record.timeClassification === "EXPIRED") {
-      delete nextState.activeAlerts[original];
-    } else {
-      nextState.activeAlerts[original] = {
-        ...nextState.activeAlerts[original],
-        ...record,
-        originalKey: original
-      };
-    }
+    nextState.activeAlerts[original] = {
+      ...nextState.activeAlerts[original],
+      ...record,
+      originalKey: original
+    };
 
     markProcessed(nextState, messageKey, record);
 
-    return {
-      state: nextState,
-      action: record.timeClassification === "EXPIRED" ? "EXPIRED" : "UPDATED"
-    };
+    return { state: nextState, action: "UPDATED" };
   }
 
   if (record.timeClassification === "EXPIRED") {
@@ -759,19 +759,123 @@ function runCapSelfTests() {
     applyCapMessageToState(newResult.state, original).action === "DUPLICATE"
   );
 
+  const otherAlert = makeRecord({
+    identifier: "CAP-OTHER",
+    sent: "2026-10-13T11:00:00Z"
+  });
+  const twoAlertResult = applyCapMessageToState(newResult.state, otherAlert);
+  const originalKey = `${original.sender}|${original.identifier}`;
+  const otherAlertKey = `${otherAlert.sender}|${otherAlert.identifier}`;
+
+  function makeUpdate(identifier, overrides = {}) {
+    const now = Date.now();
+    const update = makeRecord({
+      identifier,
+      sent: new Date(now).toISOString(),
+      msgType: "Update",
+      effective: new Date(now - 60_000).toISOString(),
+      expires: new Date(now + 60_000).toISOString(),
+      event: "Updated Rain",
+      references: [{
+        sender: original.sender,
+        identifier: original.identifier,
+        sent: original.sent
+      }],
+      ...overrides
+    });
+
+    update.timeClassification = classifyTime(update);
+    return update;
+  }
+
+  const validUpdate = makeUpdate("CAP-UPDATE-VALID");
+  const validUpdateResult = applyCapMessageToState(newResult.state, validUpdate);
+  const updatedTwoAlertResult = applyCapMessageToState(
+    twoAlertResult.state,
+    validUpdate
+  );
+  check(
+    "Valid Update updates its referenced alert",
+    validUpdateResult.action === "UPDATED" &&
+      validUpdateResult.state.activeAlerts[originalKey].event === "Updated Rain"
+  );
+
+  const beforeUpdateAlerts = JSON.stringify(newResult.state.activeAlerts);
+  const updateTimestampCases = [
+    [
+      "Expired Update is rejected",
+      {
+        effective: new Date(Date.now() - 120_000).toISOString(),
+        expires: new Date(Date.now() - 60_000).toISOString()
+      },
+      "EXPIRED"
+    ],
+    [
+      "Future-dated Update is rejected",
+      {
+        effective: new Date(Date.now() + 60_000).toISOString(),
+        expires: new Date(Date.now() + 120_000).toISOString()
+      },
+      "FUTURE — not active yet"
+    ],
+    ["Update with missing expiry is rejected", { expires: "" }, "REVIEW — expiry missing"],
+    ["Update with invalid expiry is rejected", { expires: "not a date" }, "REVIEW — expiry invalid"],
+    ["Update with missing effective time is rejected", { effective: "" }, "REVIEW — effective time missing"],
+    ["Update with invalid effective time is rejected", { effective: "not a date" }, "REVIEW — effective time invalid"]
+  ];
+
+  for (const [name, overrides, expectedClassification] of updateTimestampCases) {
+    const update = makeUpdate(`CAP-UPDATE-${name}`, overrides);
+    const updateResult = applyCapMessageToState(newResult.state, update);
+    check(
+      name,
+      update.timeClassification === expectedClassification &&
+        updateResult.action === "UPDATE_TIME_REVIEW" &&
+        JSON.stringify(updateResult.state.activeAlerts) === beforeUpdateAlerts
+    );
+  }
+
   const cancel = makeRecord({
     identifier: "CAP-CANCEL",
     sent: "2026-10-13T10:05:00Z",
     msgType: "Cancel",
     timeClassification: "CANCELLATION — REVIEW",
-    references: [{ sender: "Test-Sender", identifier: "CAP-NEW", sent: original.sent }]
+    references: [{
+      sender: validUpdate.sender,
+      identifier: validUpdate.identifier,
+      sent: validUpdate.sent
+    }]
   });
-  const cancelResult = applyCapMessageToState(newResult.state, cancel);
+  const cancelResult = applyCapMessageToState(updatedTwoAlertResult.state, cancel);
 
   check(
-    "Cancellation removes original alert",
+    "Matching Cancel deactivates only its referenced alert",
     cancelResult.action === "CANCELLED" &&
-      Object.keys(cancelResult.state.activeAlerts).length === 0
+      !cancelResult.state.activeAlerts[originalKey] &&
+      Boolean(cancelResult.state.activeAlerts[otherAlertKey])
+  );
+
+  const unmatchedCancel = makeRecord({
+    identifier: "CAP-CANCEL-UNMATCHED",
+    sent: "2026-10-13T10:10:00Z",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: validUpdate.sender,
+      identifier: validUpdate.identifier,
+      sent: "2026-10-13T10:01:00Z"
+    }]
+  });
+  const unmatchedCancelResult = applyCapMessageToState(
+    updatedTwoAlertResult.state,
+    unmatchedCancel
+  );
+
+  check(
+    "Unmatched Cancel leaves all active alerts unchanged",
+    unmatchedCancelResult.action === "CANCELLATION_REVIEW" &&
+      JSON.stringify(unmatchedCancelResult.state.activeAlerts) ===
+        JSON.stringify(updatedTwoAlertResult.state.activeAlerts)
   );
 
   const expired = makeRecord({ identifier: "CAP-EXPIRED", timeClassification: "EXPIRED" });
