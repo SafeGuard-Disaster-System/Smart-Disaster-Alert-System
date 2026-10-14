@@ -537,15 +537,18 @@ function selectUnfetchedReferenceCandidates(
   maxChecks
 ) {
   const alreadyFetchedLinks = new Set(
-    alreadyFetchedItems.map(item => item.link)
+    alreadyFetchedItems.map(item => item.link).filter(Boolean)
   );
 
   const referencedItems = findReferencedRssItems(items, references);
   const unfetchedItems = referencedItems.filter(
-    item => !alreadyFetchedLinks.has(item.link)
+    item => item.link && !alreadyFetchedLinks.has(item.link)
   );
 
-  return selectCapCandidates(unfetchedItems, maxChecks);
+  const uniqueLinks = [...new Map(
+    unfetchedItems.map(item => [item.link, item])
+  ).values()];
+  return selectCapCandidates(uniqueLinks, maxChecks);
 }
 
 function capMatchesReference(cap, reference) {
@@ -1314,26 +1317,88 @@ console.log(
 
   const results = [];
   const errors = [];
-  let nextIndex = 0;
+  const checkedLinks = new Set();
+  let capRequests = 0;
 
-  async function worker() {
-    while (nextIndex < candidates.length) {
-      const item = candidates[nextIndex++];
-      try {
-        results.push(await checkCap(item));
-      } catch (error) {
-        errors.push({ title: item.title, error: error.message });
-        console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
+  async function fetchCandidates(batch) {
+    let nextIndex = 0;
+    async function worker() {
+      while (nextIndex < batch.length) {
+        const item = batch[nextIndex++];
+        // Count every attempted request, including failures, before starting it.
+        if (capRequests >= MAX_CAP_CHECKS) return;
+        capRequests++;
+        if (item.link) checkedLinks.add(item.link);
+        try {
+          const record = await checkCap(item);
+          results.push(record);
+          return record;
+        } catch (error) {
+          errors.push({ title: item.title, error: error.message });
+          console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
+          return null;
+        }
       }
+    }
+    const out = await Promise.all(Array.from(
+      { length: Math.min(CONCURRENCY, batch.length) },
+      () => worker()
+    ));
+    return out.filter(Boolean);
+  }
+
+  const initialRecords = await fetchCandidates(candidates);
+
+  // Fetch referenced originals only when their RSS GUID maps to a CAP ID
+  // base. Exact sender, identifier, and sent time are checked after fetching.
+  const references = initialRecords.flatMap(record => record.references || []);
+  const remainingBudget = Math.max(0, MAX_CAP_CHECKS - capRequests);
+  const referenceCandidates = selectUnfetchedReferenceCandidates(
+    validItems,
+    references,
+    [...checkedLinks].map(link => ({ link })),
+    Math.min(REFERENCE_CHECK_RESERVE, remainingBudget)
+  );
+  const referenceRecords = await fetchCandidates(referenceCandidates);
+
+  for (const record of referenceRecords) {
+    const capIdentity = {
+      sender: record.sender,
+      identifier: record.identifier,
+      sent: record.sent
+    };
+    const matchedReferences = references.filter(reference =>
+      capMatchesReference(capIdentity, reference)
+    );
+    record.referenceVerification = matchedReferences.length
+      ? "EXACT REFERENCE MATCH"
+      : "NO EXACT REFERENCE MATCH";
+    record.matchedReferences = matchedReferences;
+  }
+
+  const exactReferenceRecords = new Set(
+    referenceRecords.filter(
+      record => record.referenceVerification === "EXACT REFERENCE MATCH"
+    )
+  );
+  for (const record of referenceRecords) {
+    if (!exactReferenceRecords.has(record)) {
+      const index = results.indexOf(record);
+      if (index !== -1) results.splice(index, 1);
+      console.log(
+        `REFERENCE MISMATCH: ${record.sender}|${record.identifier}|${record.sent}`
+      );
     }
   }
 
-  await Promise.all(
-    Array.from(
-      { length: Math.min(CONCURRENCY, candidates.length) },
-      () => worker()
-    )
-  );
+  // Keep one record for each sender/identifier/sent triple, preserving the
+  // first occurrence and its fetch metadata.
+  const deduplicated = new Map();
+  for (const record of results) {
+    const key = `${record.sender}|${record.identifier}|${record.sent}`;
+    if (!deduplicated.has(key)) deduplicated.set(key, record);
+  }
+  results.splice(0, results.length, ...deduplicated.values());
 
   analyzeBatch(results);
 
@@ -1367,6 +1432,9 @@ console.log(
   console.log("State actions:", JSON.stringify(stateActions));
   console.log("State saved: NO");
   console.log("Firebase writes: 0");
+  console.log(`CAP requests attempted (including failures): ${capRequests}/${MAX_CAP_CHECKS}`);
+  console.log(`Second-pass reference candidates fetched: ${referenceRecords.length}`);
+  console.log(`Exact CAP reference matches: ${referenceRecords.filter(record => record.referenceVerification === "EXACT REFERENCE MATCH").length}`);
 
   for (const record of results) {
     console.log("\n--- CAP RECORD ---");
@@ -1451,4 +1519,3 @@ if (process.argv.includes("--test-state")) {
     process.exitCode = 1;
   });
 }
-
