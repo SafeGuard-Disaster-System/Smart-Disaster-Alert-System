@@ -1152,6 +1152,11 @@ if (process.argv.includes("--test-state")) {
     console.error("STATE TESTS FAILED:", error.message);
     process.exitCode = 1;
   });
+} else if (process.argv.includes("--test-persistence")) {
+  runPersistenceSelfTests().catch(error => {
+    console.error("PERSISTENCE TESTS FAILED:", error.message);
+    process.exitCode = 1;
+  });
 } else if (process.argv.includes("--test-location")) {
   runLocationSelfTests();
 } else if (process.argv.includes("--test-cap")) {
