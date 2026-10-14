@@ -1232,11 +1232,14 @@ async function main() {
   const validItems = items.filter(
     item => item.link && validCapUrl(item.link)
   );
+ 
+const initialCheckLimit =
+  MAX_CAP_CHECKS - REFERENCE_CHECK_RESERVE;
 
-  const candidates = selectCapCandidates(
-    validItems,
-    MAX_CAP_CHECKS
-  );
+const candidates = selectCapCandidates(
+  validItems,
+  initialCheckLimit
+);
 
   console.log(
       "Reference matching: candidate helper available; " +
