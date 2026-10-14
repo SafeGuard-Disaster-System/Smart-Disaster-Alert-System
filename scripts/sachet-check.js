@@ -505,6 +505,20 @@ function selectCapCandidates(
 
 
 
+function findReferencedRssItems(items, references) {
+  const referencedIds = new Set(
+    references.map(ref => ref.identifier)
+  );
+
+  return items.filter(item => {
+    if (!item.id) return false;
+
+    return referencedIds.has(item.id);
+  });
+}
+
+
+
 function analyzeBatch(records) {
   const seenIds = new Set();
   const seenMessages = new Set();
@@ -995,6 +1009,43 @@ function makeRecord(overrides = {}) {
     "Candidate selection keeps newest entries first",
     selectedCandidates[0].id === "CAP-35" &&
       selectedCandidates[29].id === "CAP-6"
+  );
+
+  const referenceTestItems = [
+    { id: "CAP-ORIGINAL", title: "Original alert" },
+    { id: "CAP-OTHER", title: "Unrelated alert" }
+  ];
+
+  const referenceTestRefs = [
+    {
+      sender: "Test-Sender",
+      identifier: "CAP-ORIGINAL",
+      sent: "2026-10-13T09:00:00Z"
+    }
+  ];
+
+  const foundReferencedItems = findReferencedRssItems(
+    referenceTestItems,
+    referenceTestRefs
+  );
+
+  check(
+    "Referenced RSS original is found by exact identifier",
+    foundReferencedItems.length === 1 &&
+      foundReferencedItems[0].id === "CAP-ORIGINAL"
+  );
+
+  check(
+    "Unrelated RSS entry is not selected",
+    !foundReferencedItems.some(item => item.id === "CAP-OTHER")
+  );
+
+  check(
+    "Missing referenced original returns no match",
+    findReferencedRssItems(
+      referenceTestItems,
+      [{ sender: "Test-Sender", identifier: "CAP-MISSING" }]
+    ).length === 0
   );
   
   const referencedOriginalId = "CAP-1";
