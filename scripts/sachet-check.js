@@ -467,8 +467,13 @@ function markProcessed(state, messageKey, record) {
 }
 
 
-function selectCapCandidates(items, maxChecks = MAX_CAP_CHECKS) {
-  return items
+
+function selectCapCandidates(
+  items,
+  maxChecks = MAX_CAP_CHECKS,
+  referencedIds = []
+) {
+  const rankedItems = items
     .map((item, index) => ({
       ...item,
       publishedAt: Date.parse(item.pubDate),
@@ -483,9 +488,21 @@ function selectCapCandidates(items, maxChecks = MAX_CAP_CHECKS) {
         : b.publishedAt;
 
       return bTime - aTime || a.originalIndex - b.originalIndex;
-    })
-    .slice(0, maxChecks);
+    });
+
+  const referenced = new Set(referencedIds);
+
+  const priorityItems = rankedItems.filter(item =>
+    referenced.has(item.id)
+  );
+
+  const otherItems = rankedItems.filter(item =>
+    !referenced.has(item.id)
+  );
+
+  return [...priorityItems, ...otherItems].slice(0, maxChecks);
 }
+
 
 
 function analyzeBatch(records) {
@@ -979,7 +996,23 @@ function makeRecord(overrides = {}) {
     selectedCandidates[0].id === "CAP-35" &&
       selectedCandidates[29].id === "CAP-6"
   );
+  
+  const referencedOriginalId = "CAP-1";
 
+  const prioritizedCandidates = selectCapCandidates(
+    candidateItems,
+    30,
+    [referencedOriginalId]
+  );
+
+  check(
+    "Referenced original is prioritized within request limit",
+    prioritizedCandidates.length === 30 &&
+      prioritizedCandidates[0].id === referencedOriginalId &&
+      prioritizedCandidates.some(
+        item => item.id === referencedOriginalId
+      )
+  );
 
   const duplicates = [
     makeRecord(),
