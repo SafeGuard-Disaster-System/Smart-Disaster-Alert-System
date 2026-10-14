@@ -5,7 +5,9 @@ const FEED_URL =
 const CAP_HOST = "sachet.ndma.gov.in";
 const CAP_PATH = "/cap_public_website/FetchXMLFile";
 const MAX_CAP_CHECKS = 30;
+const REFERENCE_CHECK_RESERVE = 5;
 const CONCURRENCY = 2;
+
 
 const LOCAL_AREA_KEYWORDS = [
   "navi mumbai", "new mumbai", "kalamboli", "kharghar",
