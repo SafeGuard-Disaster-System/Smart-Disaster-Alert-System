@@ -317,10 +317,48 @@ async function saveCapState(state, filePath = STATE_FILE) {
   await fs.rename(tempFile, targetFile);
 }
 
+
 function applyCapMessageToState(state, record) {
+  if (
+    !record ||
+    typeof record.sender !== "string" ||
+    !record.sender.trim() ||
+    record.sender === "(missing sender)" ||
+    typeof record.identifier !== "string" ||
+    !record.identifier.trim() ||
+    record.identifier === "(missing ID)" ||
+    typeof record.sent !== "string" ||
+    !record.sent.trim() ||
+    record.sent === "(missing sent time)" ||
+    !Number.isFinite(Date.parse(record.sent)) ||
+    typeof record.msgType !== "string" ||
+    !["Alert", "Update", "Cancel"].includes(
+      record.msgType.trim().toLowerCase().replace(/^./, c => c.toUpperCase())
+    )
+  ) {
+    return {
+      state,
+      action: "INVALID_MESSAGE"
+    };
+  }
+
+  const normalizedRecord = {
+    ...record,
+    sender: record.sender.trim(),
+    identifier: record.identifier.trim(),
+    sent: record.sent.trim(),
+    msgType: record.msgType.trim().toLowerCase().replace(
+      /^./,
+      c => c.toUpperCase()
+    )
+  };
+
+  record = normalizedRecord;
+
   const nextState = JSON.parse(JSON.stringify(state));
   const messageKey =
     `${record.sender}|${record.identifier}|${record.sent}`;
+
 
   if (nextState.processedMessages[messageKey]) {
     return { state: nextState, action: "DUPLICATE" };
@@ -347,10 +385,22 @@ function applyCapMessageToState(state, record) {
     return { state: nextState, action: "CANCELLED" };
   }
 
+  
   // Unknown updates remain retryable.
   if (record.msgType === "Update") {
     if (!original) {
       return { state: nextState, action: "UPDATE_REVIEW" };
+    }
+
+    // An update must pass location screening before changing an alert.
+    if (
+      record.locationClassification !==
+      "POSSIBLE LOCAL MATCH — VERIFY"
+    ) {
+      return {
+        state: nextState,
+        action: "UPDATE_LOCATION_REVIEW"
+      };
     }
 
     if (record.timeClassification === "EXPIRED") {
@@ -672,6 +722,48 @@ function makeRecord(overrides = {}) {
     updateResult.action === "UPDATED" &&
       updateResult.state.activeAlerts["Test-Sender|CAP-ORIGINAL"]?.event === "Severe Rain" &&
       Object.keys(updateResult.state.activeAlerts).length === 1
+  );
+
+  
+  const nonlocalUpdate = makeRecord({
+    identifier: "CAP-NONLOCAL-UPDATE",
+    sent: "2026-10-13T10:06:00Z",
+    msgType: "Update",
+    timeClassification: "UPDATE — REVIEW",
+    locationClassification: "NO LOCAL KEYWORD MATCH",
+    event: "Nonlocal event",
+    references: [{
+      sender: "Test-Sender",
+      identifier: "CAP-ORIGINAL",
+      sent: originalUpdateTarget.sent
+    }]
+  });
+
+  const nonlocalUpdateResult = applyCapMessageToState(
+    updateStart.state,
+    nonlocalUpdate
+  );
+
+  check(
+    "Nonlocal update cannot overwrite original alert",
+    nonlocalUpdateResult.action === "UPDATE_LOCATION_REVIEW" &&
+      nonlocalUpdateResult.state.activeAlerts[
+        "Test-Sender|CAP-ORIGINAL"
+      ]?.event === "Heavy Rain" &&
+      !nonlocalUpdateResult.state.processedMessages[
+        `${nonlocalUpdate.sender}|${nonlocalUpdate.identifier}|${nonlocalUpdate.sent}`
+      ]
+  );
+
+  const invalidMessageResult = applyCapMessageToState(
+    updateStart.state,
+    makeRecord({ identifier: "(missing ID)" })
+  );
+
+  check(
+    "Missing identifier is rejected without changing state",
+    invalidMessageResult.action === "INVALID_MESSAGE" &&
+      invalidMessageResult.state === updateStart.state
   );
 
   const unknownUpdate = makeRecord({
