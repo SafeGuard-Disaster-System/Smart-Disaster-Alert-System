@@ -1,0 +1,44 @@
+name: SafeGuard Persistence Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-state-checkout:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out main project
+        uses: actions/checkout@v4
+
+      - name: Check out persistent state branch
+        uses: actions/checkout@v4
+        with:
+          ref: safeguard-state
+          path: state
+          persist-credentials: false
+
+      - name: Verify persistent state file
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = 'state/alert-state.json';
+          if (!fs.existsSync(path)) {
+            console.error('FAIL: State file is missing');
+            process.exit(1);
+          }
+          const state = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (
+            state.version !== 1 ||
+            !state.processedMessages ||
+            !state.activeAlerts
+          ) {
+            console.error('FAIL: Invalid state structure');
+            process.exit(1);
+          }
+          console.log('PASS: Persistent state file exists and is valid');
+          console.log('State version:', state.version);
+          "
