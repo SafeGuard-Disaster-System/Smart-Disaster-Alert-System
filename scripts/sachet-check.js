@@ -1357,13 +1357,6 @@ async function fetchCandidates(batch) {
   return batchResults;
 }
 
-    const out = await Promise.all(Array.from(
-      { length: Math.min(CONCURRENCY, batch.length) },
-      () => worker()
-    ));
-    return out.filter(Boolean);
-  }
-
   const initialRecords = await fetchCandidates(candidates);
 
   // Fetch referenced originals only when their RSS GUID maps to a CAP ID
