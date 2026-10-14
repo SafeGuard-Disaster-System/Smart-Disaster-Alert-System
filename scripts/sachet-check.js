@@ -530,6 +530,24 @@ function findReferencedRssItems(items, references) {
   });
 }
 
+function selectUnfetchedReferenceCandidates(
+  items,
+  references,
+  alreadyFetchedItems,
+  maxChecks
+) {
+  const alreadyFetchedLinks = new Set(
+    alreadyFetchedItems.map(item => item.link)
+  );
+
+  const referencedItems = findReferencedRssItems(items, references);
+  const unfetchedItems = referencedItems.filter(
+    item => !alreadyFetchedLinks.has(item.link)
+  );
+
+  return selectCapCandidates(unfetchedItems, maxChecks);
+}
+
 function capMatchesReference(cap, reference) {
   if (!cap || !reference) {
     return false;
