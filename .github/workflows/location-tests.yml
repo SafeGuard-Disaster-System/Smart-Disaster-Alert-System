@@ -28,3 +28,6 @@ jobs:
 
       - name: Run persistent state tests
         run: node scripts/sachet-check.js --test-state
+
+      - name: Run synthetic persistence tests
+        run: node scripts/sachet-check.js --test-persistence
