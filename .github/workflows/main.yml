@@ -1,3 +1,4 @@
+
 name: SafeGuard SACHET Feed Check
 
 on:
@@ -35,3 +36,22 @@ jobs:
 
       - name: Parse SACHET disaster feed
         run: node scripts/sachet-check.js
+
+      - name: Validate persistent state
+        if: success()
+        working-directory: state
+        run: node -e "const fs=require('node:fs'); const s=JSON.parse(fs.readFileSync('alert-state.json','utf8')); if(s.version!==1 || !s.processedMessages || !s.activeAlerts) process.exit(1); console.log('State JSON is valid.');"
+
+      - name: Save persistent state
+        if: success()
+        working-directory: state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add alert-state.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update SACHET alert state"
+            git push origin HEAD:safeguard-state
+          else
+            echo "No state changes to save."
+          fi
