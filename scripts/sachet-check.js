@@ -842,6 +842,13 @@ function makeRecord(overrides = {}) {
     !unknownUpdateResult.state.processedMessages[unknownUpdateKey]
   );
 
+  check(
+    "Unknown update remains retryable until original is available",
+    unknownUpdateResult.action === "UPDATE_REVIEW" &&
+      !unknownUpdateResult.state.processedMessages[unknownUpdateKey] &&
+      Object.keys(unknownUpdateResult.state.activeAlerts).length === 0
+  );
+
   const unknownCancel = makeRecord({
     identifier: "CAP-UNKNOWN-CANCEL",
     sent: "2026-10-13T10:15:00Z",
