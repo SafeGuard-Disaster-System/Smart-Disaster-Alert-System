@@ -1185,6 +1185,11 @@ async function main() {
     MAX_CAP_CHECKS
   );
 
+  console.log(
+      "Reference matching: candidate helper available; " +
+    "exact CAP sender and identifier verification not yet integrated."
+  );
+
   console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records selected: ${candidates.length}`);
