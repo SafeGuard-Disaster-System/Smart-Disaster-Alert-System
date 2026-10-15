@@ -46,7 +46,7 @@ if ("Notification" in window) {
 
  
 
-        Notification.requestPermission();
+        // Permission is requested only by the explicit button handler below.
 
  
 
@@ -127,21 +127,7 @@ function showAlertNotification(alertData) {
  
 
     if (!("Notification" in window)) {
-
- 
-
- 
-
- 
-
         return;
-
- 
-
- 
-
- 
-
     }
 
  
@@ -359,6 +345,7 @@ function showAlertNotification(alertData) {
  
 
 const db = firebase.database();
+const isAdminDashboard = Boolean(document.getElementById("alertForm"));
 
  
 
@@ -6980,6 +6967,7 @@ async function resolveAlert(
 
  
 
+    if (!isAdminDashboard) return;
     const confirmed =
 
  
@@ -12762,6 +12750,31 @@ activeAlertsRef.on(
 
         removeExpiredAlerts(alerts);
 
+        if (!isAdminDashboard) {
+            const activeAlerts =
+                window.SafeGuardNotificationState.getActiveAlerts(alerts);
+            alerts.splice(0, alerts.length, ...activeAlerts);
+        }
+
+        checkForNewAlerts(alerts);
+
+        const statusElement =
+            document.getElementById("systemAlertStatus");
+        if (statusElement) {
+            statusElement.textContent = alerts.length
+                ? `● ${alerts.length} Active Alert${alerts.length === 1 ? "" : "s"}`
+                : "● No Active Emergency";
+        }
+
+        const notice = document.getElementById("liveAlertNotice");
+        if (notice && notice.dataset.state === "error") {
+            notice.replaceChildren();
+            delete notice.dataset.state;
+            notice.hidden = true;
+        }
+
+        removeInactiveInPageAlerts(alerts);
+
  
 
  
@@ -12925,6 +12938,7 @@ activeAlertsRef.on(
  
 
     function (error) {
+    showAlertListenerError();
 
  
 
@@ -13024,6 +13038,9 @@ async function removeExpiredAlerts(alerts) {
 
  
 
+    if (!isAdminDashboard) {
+        return;
+    }
     if (!Array.isArray(alerts) || alerts.length === 0) {
 
  
@@ -13488,6 +13505,27 @@ setInterval(async function () {
 
  
 
+    if (!isAdminDashboard) {
+        const activeAlerts =
+            window.SafeGuardNotificationState.getActiveAlerts(currentActiveAlerts);
+
+        if (activeAlerts.length !== currentActiveAlerts.length) {
+            currentActiveAlerts = activeAlerts;
+            filterActiveAlerts();
+            displayUserActiveAlerts(activeAlerts);
+            updateDashboardStatistics();
+
+            const status = document.getElementById("systemAlertStatus");
+            if (status) {
+                status.textContent = activeAlerts.length
+                    ? `● ${activeAlerts.length} Active Alert${activeAlerts.length === 1 ? "" : "s"}`
+                    : "● No Active Emergency";
+            }
+        }
+
+        removeInactiveInPageAlerts(activeAlerts);
+        return;
+    }
     try {
 
  
@@ -20167,6 +20205,54 @@ let notificationsInitialized =
  
 
  
+const notificationStateTracker =
+    window.SafeGuardNotificationState.createTracker();
+
+function showInPageAlert(alertData) {
+    const notice = document.getElementById("liveAlertNotice");
+    if (!notice) return;
+
+    if (notice.dataset.state === "error") {
+        notice.replaceChildren();
+        delete notice.dataset.state;
+    }
+
+    const disaster = String(alertData.disaster || "Disaster");
+    const location = String(alertData.location || "Location not specified");
+    const severity = String(alertData.severity || "Unspecified");
+    const message = String(alertData.message || "Review the active alert details.");
+
+    const entry = document.createElement("div");
+    entry.dataset.alertId = String(alertData.id);
+    entry.textContent = `New active disaster alert: ${disaster}. Location: ${location}. Severity: ${severity}. ${message}`;
+    notice.appendChild(entry);
+    notice.hidden = false;
+}
+
+function removeInactiveInPageAlerts(alerts) {
+    const notice = document.getElementById("liveAlertNotice");
+    if (!notice || notice.dataset.state === "error") return;
+
+    const activeIds = new Set(alerts.map(alertData => String(alertData.id)));
+    for (const entry of notice.querySelectorAll("[data-alert-id]")) {
+        if (!activeIds.has(entry.dataset.alertId)) entry.remove();
+    }
+
+    if (notice.children.length === 0) notice.hidden = true;
+}
+
+function showAlertListenerError() {
+    const notice = document.getElementById("liveAlertNotice");
+    const status = document.getElementById("systemAlertStatus");
+
+    if (status) status.textContent = "● Live alert updates unavailable";
+    if (!notice) return;
+
+    notice.replaceChildren();
+    notice.dataset.state = "error";
+    notice.textContent = "Live alert updates are unavailable. No new alert was confirmed.";
+    notice.hidden = false;
+}
 
 function checkForNewAlerts(
 
@@ -20235,6 +20321,14 @@ function checkForNewAlerts(
         return;
 
  
+
+    const newlyActiveAlerts =
+        notificationStateTracker.observe(alerts);
+    const newlyActiveIds = new Set(
+        newlyActiveAlerts.map(alertData => String(alertData.id))
+    );
+
+    newlyActiveAlerts.forEach(showInPageAlert);
 
  
 
@@ -20634,6 +20728,7 @@ function checkForNewAlerts(
 
                 )
 
+
  
 
  
@@ -20697,6 +20792,10 @@ function checkForNewAlerts(
  
 
             // Remember the new alert
+            if (!newlyActiveIds.has(alertId)) {
+                return;
+            }
+
 
  
 
@@ -21393,6 +21492,7 @@ function checkForNewAlerts(
  
 
 // WATCH FIREBASE FOR NEW ALERTS
+/* Replaced by the primary active-alert listener above.
 
  
 
@@ -21560,6 +21660,7 @@ activeAlertsRef.on(
 
  
 
+*/
 // ADMIN LOCATION SEARCH
 
  
