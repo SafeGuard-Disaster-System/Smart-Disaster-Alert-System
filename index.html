@@ -149,15 +149,6 @@
  
 
     ====================================================== -->
-
- 
-
- 
-
- 
-
- 
-
     <header class="topbar">
 
  
@@ -349,6 +340,37 @@
  
 
     <main class="container">
+        <div
+            id="liveAlertNotice"
+            class="live-alert-notice"
+            role="status"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+            hidden
+        ></div>
+        <section class="notification-demo-controls" aria-labelledby="notificationDemoTitle">
+            <div>
+                <strong id="notificationDemoTitle">Local notification demo</strong>
+                <p>DEMO ONLY. No alert is sent, stored, or presented as official.</p>
+            </div>
+            <button
+                type="button"
+                id="runNotificationDemo"
+                class="notification-button demo-notification-button"
+                aria-describedby="notificationDemoTitle"
+            >
+                Run demo alert
+            </button>
+        </section>
+        <div
+            id="demoAlertNotice"
+            class="demo-alert-notice"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            hidden
+        ></div>
 
  
 
@@ -371,14 +393,6 @@
  
 
         ================================================== -->
-
- 
-
- 
-
- 
-
- 
 
         <section class="hero">
 
@@ -416,7 +430,7 @@
 
  
 
- 
+
 
  
 
@@ -674,7 +688,7 @@
 
  
 
-                     ● No Active Emergency
+                     ● Connecting to live alerts…
 
  
 
@@ -1290,4 +1304,10 @@
 
 
 
+<script src="notification-demo.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"></script>
+<script src="firebase-init.js"></script>
+<script src="notification-state.js"></script>
+<script src="script.js?v=5.0.0"></script>
 </body>
