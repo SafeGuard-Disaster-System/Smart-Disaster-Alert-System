@@ -8,7 +8,6 @@ const MAX_CAP_CHECKS = 30;
 const REFERENCE_CHECK_RESERVE = 5;
 const CONCURRENCY = 2;
 
-
 const LOCAL_AREA_KEYWORDS = [
   "navi mumbai", "new mumbai", "kalamboli", "kharghar",
   "panvel", "vashi", "nerul", "belapur", "airoli",
@@ -49,8 +48,7 @@ function getCapTag(xml, tag) {
 }
 
 function parseRssItems(xml) {
-  const items =
-    xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
+  const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item\s*>/gi) || [];
 
   return items.map(item => ({
     title: getTag(item, "title"),
@@ -110,7 +108,6 @@ function parseDate(value) {
   return Number.isNaN(timestamp) ? null : timestamp;
 }
 
-// Preliminary keyword screening only, not geographic verification.
 function classifyLocation(area = "", title = "", description = "") {
   const normalizedArea = String(area)
     .normalize("NFKC")
@@ -144,7 +141,6 @@ function classifyTime(cap) {
   const type = (cap.msgType || "").toLowerCase();
 
   if (type === "cancel") return "CANCELLATION — REVIEW";
-  if (type === "update") return "UPDATE — REVIEW";
 
   if (type === "ack" || type === "error") {
     return `REVIEW — message type ${cap.msgType}`;
@@ -154,7 +150,7 @@ function classifyTime(cap) {
     return `REVIEW — status ${cap.status}`;
   }
 
-  if (type !== "alert") {
+  if (type !== "alert" && type !== "update") {
     return `REVIEW — message type ${cap.msgType || "missing"}`;
   }
 
@@ -169,6 +165,8 @@ function classifyTime(cap) {
   const effective = parseDate(cap.effective);
   if (effective === null) return "REVIEW — effective time invalid";
   if (effective > Date.now()) return "FUTURE — not active yet";
+
+  if (type === "update") return "UPDATE — REVIEW";
 
   return "UNEXPIRED — manual review required";
 }
@@ -208,6 +206,8 @@ async function checkCap(item) {
     certainty: cap.certainty || "(missing certainty)",
     effective: cap.effective,
     expires: cap.expires,
+    headline: cap.headline || item.title || "",
+    sourceUrl: item.link,
     references: parseReferences(cap.referencesText),
     locationClassification: classifyLocation(
       cap.areaDesc,
@@ -218,97 +218,110 @@ async function checkCap(item) {
   };
 }
 
-// In-memory CAP state structure. Not persistent storage.
 function createEmptyCapState() {
   return {
     version: 1,
     processedMessages: {},
     activeAlerts: {},
+    reviewCandidates: {},
     lastUpdated: null
   };
 }
-
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
 
-const STATE_FILE = path.join(
-  process.cwd(),
-  "state",
-  "alert-state.json"
-);
+const STATE_FILE = path.join(process.cwd(), "state", "alert-state.json");
 
 function getStateFilePath(filePath = STATE_FILE) {
   return filePath;
 }
 
+function isStateMap(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
-async function loadCapState(filePath = STATE_FILE) {
-  let raw;
-
-  try {
-    raw = await fs.readFile(getStateFilePath(filePath), "utf8");
-  } catch (error) {
-    
-  if (error.code === "ENOENT") {
-    throw new Error(
-      "Persistent state file is missing; refusing to initialize empty state."
-    );
-  }
-
-    throw error;
-  }
-
+function parseCapState(raw) {
   let state;
-
   try {
     state = JSON.parse(raw);
   } catch {
-    throw new Error(
-      "State file contains invalid JSON; refusing to reset state."
-    );
+    throw new Error("State file contains invalid JSON; refusing to reset state.");
   }
+
+  const reviewCandidates = state && state.reviewCandidates !== undefined
+    ? state.reviewCandidates
+    : {};
 
   if (
     !state ||
+    typeof state !== "object" ||
+    Array.isArray(state) ||
     state.version !== 1 ||
-    !state.processedMessages ||
-    typeof state.processedMessages !== "object" ||
-    Array.isArray(state.processedMessages) ||
-    !state.activeAlerts ||
-    typeof state.activeAlerts !== "object" ||
-    Array.isArray(state.activeAlerts) ||
-    !(
-      state.lastUpdated === null ||
-      typeof state.lastUpdated === "string"
-    )
+    !isStateMap(state.processedMessages) ||
+    !isStateMap(state.activeAlerts) ||
+    !isStateMap(reviewCandidates) ||
+    !(state.lastUpdated === null || typeof state.lastUpdated === "string")
   ) {
-    throw new Error(
-      "State file has an invalid structure; refusing to reset state."
-    );
+    throw new Error("State file has an invalid structure; refusing to reset state.");
   }
 
-  return state;
+  return { ...state, reviewCandidates };
+}
+
+async function loadCapState(filePath = STATE_FILE) {
+  const targetFile = getStateFilePath(filePath);
+
+  try {
+    const raw = await fs.readFile(targetFile, "utf8");
+    return parseCapState(raw);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      await fs.mkdir(path.dirname(targetFile), { recursive: true });
+      const initial = createEmptyCapState();
+      await saveCapState(initial, targetFile);
+      return initial;
+    }
+    throw error;
+  }
+}
+
+async function readReviewCandidates(filePath = STATE_FILE) {
+  try {
+    const raw = await fs.readFile(getStateFilePath(filePath), "utf8");
+    return parseCapState(raw).reviewCandidates;
+  } catch (error) {
+    if (error && error.code === "ENOENT") return {};
+    throw error;
+  }
 }
 
 async function saveCapState(state, filePath = STATE_FILE) {
+  const reviewCandidates = state && state.reviewCandidates === undefined
+    ? {}
+    : state?.reviewCandidates;
+
   if (
     !state ||
     state.version !== 1 ||
-    !state.processedMessages ||
-    !state.activeAlerts
+    !isStateMap(state.processedMessages) ||
+    !isStateMap(state.activeAlerts) ||
+    !isStateMap(reviewCandidates)
   ) {
     throw new Error("Refusing to save invalid CAP state.");
   }
 
   const updatedState = {
     ...state,
+    reviewCandidates,
     lastUpdated: new Date().toISOString()
   };
 
   const targetFile = getStateFilePath(filePath);
   const tempFile = `${targetFile}.tmp`;
+
+  await fs.mkdir(path.dirname(targetFile), { recursive: true });
 
   await fs.writeFile(
     tempFile,
@@ -317,8 +330,8 @@ async function saveCapState(state, filePath = STATE_FILE) {
   );
 
   await fs.rename(tempFile, targetFile);
+  return true;
 }
-
 
 function applyCapMessageToState(state, record) {
   if (
@@ -338,10 +351,7 @@ function applyCapMessageToState(state, record) {
       record.msgType.trim().toLowerCase().replace(/^./, c => c.toUpperCase())
     )
   ) {
-    return {
-      state,
-      action: "INVALID_MESSAGE"
-    };
+    return { state, action: "INVALID_MESSAGE" };
   }
 
   const normalizedRecord = {
@@ -358,96 +368,130 @@ function applyCapMessageToState(state, record) {
   record = normalizedRecord;
 
   const nextState = JSON.parse(JSON.stringify(state));
-  const messageKey =
-    `${record.sender}|${record.identifier}|${record.sent}`;
-
+  const messageKey = `${record.sender}|${record.identifier}|${record.sent}`;
 
   if (nextState.processedMessages[messageKey]) {
     return { state: nextState, action: "DUPLICATE" };
   }
 
-  const references = Array.isArray(record.references)
-    ? record.references
-    : [];
-
-  const original = references
-    .map(ref => `${ref.sender}|${ref.identifier}`)
-    .find(key => nextState.activeAlerts[key]);
+  nextState.reviewCandidates = nextState.reviewCandidates || {};
+  const references = Array.isArray(record.references) ? record.references : [];
+  const original = findReferencedRecordKey(nextState.activeAlerts, references);
+  const reviewOriginal = findReferencedRecordKey(
+    nextState.reviewCandidates,
+    references
+  );
 
   const alertKey = `${record.sender}|${record.identifier}`;
 
-  // Unknown cancellations remain retryable.
   if (record.msgType === "Cancel") {
-    if (!original) {
+    const linkedActiveKey = reviewOriginal && nextState.activeAlerts[reviewOriginal]
+      ? reviewOriginal
+      : null;
+    const activeKey = original || linkedActiveKey;
+
+    if (!activeKey && !reviewOriginal) {
       return { state: nextState, action: "CANCELLATION_REVIEW" };
     }
 
-    delete nextState.activeAlerts[original];
+    if (activeKey) delete nextState.activeAlerts[activeKey];
+    if (reviewOriginal) {
+      nextState.reviewCandidates[reviewOriginal] = {
+        ...nextState.reviewCandidates[reviewOriginal],
+        reviewStatus: "CANCELLED — NOT ACTIVE",
+        cancellationIdentifier: record.identifier,
+        cancellationSent: record.sent
+      };
+    }
     markProcessed(nextState, messageKey, record);
-    return { state: nextState, action: "CANCELLED" };
+    return {
+      state: nextState,
+      action: activeKey ? "CANCELLED" : "CANCELLED_REVIEW_CANDIDATE"
+    };
   }
 
-  
-  // Unknown updates remain retryable.
   if (record.msgType === "Update") {
-    if (!original) {
+    if (record.timeClassification !== "UPDATE — REVIEW") {
+      return { state: nextState, action: "UPDATE_TIME_REVIEW" };
+    }
+
+    if (!original && !reviewOriginal) {
       return { state: nextState, action: "UPDATE_REVIEW" };
     }
 
-    // An update must pass location screening before changing an alert.
-    if (
-      record.locationClassification !==
-      "POSSIBLE LOCAL MATCH — VERIFY"
-    ) {
+    const candidateKey = reviewOriginal || original;
+    const existingCandidate = nextState.reviewCandidates[candidateKey] ||
+      createReviewCandidate(
+        nextState.activeAlerts[original],
+        "PENDING REVIEW"
+      );
+    const updateReviewStatus =
+      record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+        ? "PENDING REVIEW"
+        : record.locationClassification === "NEEDS MANUAL REVIEW"
+          ? "LOCATION REVIEW REQUIRED"
+          : "UPDATE LOCATION REVIEW";
+    nextState.reviewCandidates[candidateKey] = {
+      ...existingCandidate,
+      ...createReviewCandidate(record, updateReviewStatus),
+      reviewKey: existingCandidate.reviewKey || candidateKey,
+      originalIdentifier:
+        existingCandidate.originalIdentifier || existingCandidate.sourceIdentifier,
+      originalKey: candidateKey
+    };
+
+    if (!original) {
+      markProcessed(nextState, messageKey, record);
+      return { state: nextState, action: "UPDATE_REVIEW" };
+    }
+
+    if (record.locationClassification !== "POSSIBLE LOCAL MATCH — VERIFY") {
       return {
         state: nextState,
         action: "UPDATE_LOCATION_REVIEW"
       };
     }
 
-    if (record.timeClassification === "EXPIRED") {
-      delete nextState.activeAlerts[original];
-    } else {
-      nextState.activeAlerts[original] = {
-        ...nextState.activeAlerts[original],
-        ...record,
-        originalKey: original
-      };
-    }
+    nextState.activeAlerts[original] = {
+      ...nextState.activeAlerts[original],
+      ...record,
+      originalKey: original
+    };
 
     markProcessed(nextState, messageKey, record);
 
-    return {
-      state: nextState,
-      action: record.timeClassification === "EXPIRED"
-        ? "EXPIRED"
-        : "UPDATED"
-    };
+    return { state: nextState, action: "UPDATED" };
   }
 
-    if (record.timeClassification === "EXPIRED") {
+  if (record.timeClassification === "EXPIRED") {
     markProcessed(nextState, messageKey, record);
     return { state: nextState, action: "EXPIRED" };
   }
 
   if (
     record.msgType !== "Alert" ||
-    record.timeClassification !==
-      "UNEXPIRED — manual review required"
+    record.timeClassification !== "UNEXPIRED — manual review required"
   ) {
     return { state: nextState, action: "REVIEW" };
   }
 
-  // Location screening is preliminary, not geographic verification.
-  // Only possible local matches may enter state for manual review.
-  if (
-    record.locationClassification !==
-    "POSSIBLE LOCAL MATCH — VERIFY"
-  ) {
-    return {
-      state: nextState,
-      action: "LOCATION_REVIEW"
-    };
+  if (record.locationClassification !== "POSSIBLE LOCAL MATCH — VERIFY") {
+    if (record.locationClassification !== "NEEDS MANUAL REVIEW") {
+      return { state: nextState, action: "LOCATION_REVIEW" };
+    }
+  }
+
+  if (!nextState.reviewCandidates[alertKey]) {
+    nextState.reviewCandidates[alertKey] = createReviewCandidate(
+      record,
+      record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+        ? "PENDING REVIEW"
+        : "LOCATION REVIEW REQUIRED"
+    );
+  }
+
+  if (record.locationClassification === "NEEDS MANUAL REVIEW") {
+    return { state: nextState, action: "LOCATION_REVIEW" };
   }
 
   nextState.activeAlerts[alertKey] = {
@@ -468,13 +512,7 @@ function markProcessed(state, messageKey, record) {
   };
 }
 
-
-
-function selectCapCandidates(
-  items,
-  maxChecks = MAX_CAP_CHECKS,
-  referencedIds = []
-) {
+function selectCapCandidates(items, maxChecks = MAX_CAP_CHECKS, referencedIds = []) {
   const rankedItems = items
     .map((item, index) => ({
       ...item,
@@ -482,31 +520,17 @@ function selectCapCandidates(
       originalIndex: index
     }))
     .sort((a, b) => {
-      const aTime = Number.isNaN(a.publishedAt)
-        ? -Infinity
-        : a.publishedAt;
-      const bTime = Number.isNaN(b.publishedAt)
-        ? -Infinity
-        : b.publishedAt;
-
+      const aTime = Number.isNaN(a.publishedAt) ? -Infinity : a.publishedAt;
+      const bTime = Number.isNaN(b.publishedAt) ? -Infinity : b.publishedAt;
       return bTime - aTime || a.originalIndex - b.originalIndex;
     });
 
   const referenced = new Set(referencedIds);
-
-  const priorityItems = rankedItems.filter(item =>
-    referenced.has(item.id)
-  );
-
-  const otherItems = rankedItems.filter(item =>
-    !referenced.has(item.id)
-  );
+  const priorityItems = rankedItems.filter(item => referenced.has(item.id));
+  const otherItems = rankedItems.filter(item => !referenced.has(item.id));
 
   return [...priorityItems, ...otherItems].slice(0, maxChecks);
 }
-
-
-
 
 function findReferencedRssItems(items, references) {
   const referencedBases = new Set();
@@ -517,7 +541,6 @@ function findReferencedRssItems(items, references) {
     }
 
     const match = ref.identifier.match(/^IN-(\d+)_\d+$/);
-
     if (match) {
       referencedBases.add(match[1]);
     }
@@ -525,17 +548,11 @@ function findReferencedRssItems(items, references) {
 
   return items.filter(item => {
     if (!item.id) return false;
-
     return referencedBases.has(String(item.id).trim());
   });
 }
 
-function selectUnfetchedReferenceCandidates(
-  items,
-  references,
-  alreadyFetchedItems,
-  maxChecks
-) {
+function selectUnfetchedReferenceCandidates(items, references, alreadyFetchedItems, maxChecks) {
   const alreadyFetchedLinks = new Set(
     alreadyFetchedItems.map(item => item.link).filter(Boolean)
   );
@@ -563,6 +580,49 @@ function capMatchesReference(cap, reference) {
   );
 }
 
+function findReferencedRecordKey(records, references) {
+  for (const reference of references) {
+    const match = Object.entries(records).find(([, record]) =>
+      capMatchesReference(record, reference)
+    );
+    if (match) return match[0];
+  }
+  return null;
+}
+
+function createReviewCandidate(record, reviewStatus = "PENDING REVIEW") {
+  const locationAssessment =
+    record.locationClassification === "POSSIBLE LOCAL MATCH — VERIFY"
+      ? "UNVERIFIED — KEYWORD MATCH ONLY; REVIEW REQUIRED"
+      : "UNVERIFIED — LOCATION REQUIRES REVIEW";
+
+  return {
+    source: "SACHET CAP",
+    reviewKey: `${record.sender}|${record.identifier}`,
+    sender: record.sender,
+    identifier: record.identifier,
+    sourceIdentifier: record.identifier,
+    originalIdentifier: record.identifier,
+    sent: record.sent,
+    headline: record.headline || record.title || "",
+    area: record.area || "",
+    severity: record.severity || "",
+    status: record.status || "",
+    event: record.event || "",
+    urgency: record.urgency || "",
+    certainty: record.certainty || "",
+    effective: record.effective || null,
+    expires: record.expires || null,
+    timeClassification: record.timeClassification || "REVIEW REQUIRED",
+    locationClassification: record.locationClassification || "NEEDS MANUAL REVIEW",
+    locationAssessment,
+    sourceUrl: record.sourceUrl || null,
+    messageType: record.msgType,
+    reviewStatus,
+    publicationStatus: "NOT PUBLISHED",
+    notificationStatus: "NOT SENT"
+  };
+}
 
 function analyzeBatch(records) {
   const seenIds = new Set();
@@ -585,9 +645,7 @@ function analyzeBatch(records) {
 
     if (record.timeClassification === "UPDATE — REVIEW") {
       record.messageClassification = "UPDATE — LINK TO ORIGINAL";
-    } else if (
-      record.timeClassification === "CANCELLATION — REVIEW"
-    ) {
+    } else if (record.timeClassification === "CANCELLATION — REVIEW") {
       record.messageClassification = "CANCELLATION — REVIEW ORIGINAL";
     }
 
@@ -598,15 +656,10 @@ function analyzeBatch(records) {
   }
 }
 
-
 async function runStateSelfTests() {
   const assert = require("node:assert/strict");
-  const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "safeguard-state-test-")
-  );
-
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "safeguard-state-test-"));
   const testFile = path.join(tempDir, "alert-state.json");
-
   const validState = {
     version: 1,
     processedMessages: {},
@@ -631,39 +684,31 @@ async function runStateSelfTests() {
     await check("Valid state loads", async () => {
       await fs.writeFile(testFile, JSON.stringify(validState));
       const loaded = await loadCapState(testFile);
-      assert.deepEqual(loaded, validState);
+      assert.deepEqual(loaded, { ...validState, reviewCandidates: {} });
     });
 
-    await check("Missing file is rejected", async () => {
-      await assert.rejects(
-        loadCapState(path.join(tempDir, "missing.json")),
-        /missing/i
-      );
+    await check("Missing file is created and loads", async () => {
+      try { await fs.unlink(testFile); } catch {}
+      const loaded = await loadCapState(testFile);
+      assert.equal(loaded.version, 1);
+      assert.deepEqual(loaded.processedMessages, {});
+      assert.deepEqual(loaded.activeAlerts, {});
+      assert.deepEqual(loaded.reviewCandidates, {});
     });
 
     await check("Invalid JSON is rejected", async () => {
       await fs.writeFile(testFile, "{invalid json");
-      await assert.rejects(
-        loadCapState(testFile),
-        /invalid JSON/i
-      );
+      await assert.rejects(loadCapState(testFile), /invalid JSON/i);
     });
 
     await check("Invalid structure is rejected", async () => {
-      await fs.writeFile(
-        testFile,
-        JSON.stringify({ version: 99 })
-      );
-      await assert.rejects(
-        loadCapState(testFile),
-        /invalid structure/i
-      );
+      await fs.writeFile(testFile, JSON.stringify({ version: 99 }));
+      await assert.rejects(loadCapState(testFile), /invalid structure/i);
     });
 
     await check("Save and load round trip succeeds", async () => {
       await saveCapState(validState, testFile);
       const loaded = await loadCapState(testFile);
-
       assert.equal(loaded.version, 1);
       assert.deepEqual(loaded.processedMessages, {});
       assert.deepEqual(loaded.activeAlerts, {});
@@ -671,7 +716,71 @@ async function runStateSelfTests() {
       assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
     });
 
-    console.log(`State tests passed: ${passed}/5`);
+    await check("Review queue inspection is read-only", async () => {
+      const queue = {
+        "Test-Sender|CAP-REVIEW": {
+          source: "SACHET CAP",
+          publicationStatus: "NOT PUBLISHED"
+        }
+      };
+      await fs.writeFile(testFile, JSON.stringify({ ...validState, reviewCandidates: queue }));
+      const before = await fs.readFile(testFile, "utf8");
+
+      assert.deepEqual(await readReviewCandidates(testFile), queue);
+      assert.equal(await fs.readFile(testFile, "utf8"), before);
+
+      const missingFile = path.join(tempDir, "review-queue-missing.json");
+      assert.deepEqual(await readReviewCandidates(missingFile), {});
+      await assert.rejects(fs.stat(missingFile), error => error.code === "ENOENT");
+    });
+
+    await check("Load failures preserve state and skip saving", async () => {
+      const previousExitCode = process.exitCode;
+      let saveCalls = 0;
+      const failIfFetched = async () => {
+        throw new Error("Unexpected SACHET request during state failure test");
+      };
+      const invalidStates = [
+        "{invalid json",
+        JSON.stringify({ version: 99 })
+      ];
+
+      try {
+        for (const contents of invalidStates) {
+          await fs.writeFile(testFile, contents);
+          process.exitCode = 0;
+
+          await main({
+            loadState: () => loadCapState(testFile),
+            fetchFeed: failIfFetched,
+            saveState: async () => {
+              saveCalls++;
+              return true;
+            }
+          });
+
+          assert.equal(process.exitCode, 1);
+          assert.equal(await fs.readFile(testFile, "utf8"), contents);
+        }
+
+        process.exitCode = 0;
+        await main({
+          loadState: () => loadCapState(tempDir),
+          fetchFeed: failIfFetched,
+          saveState: async () => {
+            saveCalls++;
+            return true;
+          }
+        });
+
+        assert.equal(process.exitCode, 1);
+        assert.equal(saveCalls, 0);
+      } finally {
+        process.exitCode = previousExitCode === undefined ? 0 : previousExitCode;
+      }
+    });
+
+    console.log(`State tests passed: ${passed}/7`);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
@@ -679,9 +788,7 @@ async function runStateSelfTests() {
 
 async function runPersistenceSelfTests() {
   const assert = require("node:assert/strict");
-  const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "safeguard-persistence-test-")
-  );
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "safeguard-persistence-test-"));
   const testFile = path.join(tempDir, "alert-state.json");
 
   try {
@@ -694,25 +801,32 @@ async function runPersistenceSelfTests() {
       sent: "2026-10-14T10:00:00Z",
       msgType: "Alert",
       event: "Synthetic Rain",
+      headline: "Synthetic Rain Alert",
+      area: "Navi Mumbai",
+      severity: "Moderate",
+      effective: "2026-10-14T09:00:00Z",
+      expires: "2026-10-14T11:00:00Z",
       timeClassification: "UNEXPIRED — manual review required",
       locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
       references: []
     };
 
-    // First run: process and persist a synthetic alert.
     let result = applyCapMessageToState(state, alert);
     assert.equal(result.action, "NEW_ALERT_REVIEW");
     await saveCapState(result.state, testFile);
 
-    // Second run: reload state and detect the same message.
     state = await loadCapState(testFile);
     result = applyCapMessageToState(state, alert);
     assert.equal(result.action, "DUPLICATE");
-
-    // Verify that the stored alert survived reloading.
+    assert.equal(Object.keys(state.activeAlerts).length, 1);
+    assert.equal(Object.keys(state.reviewCandidates).length, 1);
     assert.equal(
-      Object.keys(state.activeAlerts).length,
-      1
+      Object.values(state.reviewCandidates)[0].publicationStatus,
+      "NOT PUBLISHED"
+    );
+    assert.equal(
+      Object.values(state.reviewCandidates)[0].notificationStatus,
+      "NOT SENT"
     );
 
     console.log("PASS: Synthetic alert saved and reloaded");
@@ -754,398 +868,34 @@ function runLocationSelfTests() {
   }
 
   console.log(`Results: ${tests.length - failures}/${tests.length} passed`);
-  if (failures > 0) {
-    process.exitCode = 1;
-  } else {
-    console.log("All location tests passed.");
-  }
-}
-
-function runCapSelfTests() {
-  const tests = [];
-  const c  // An update must pass location screening before changing an alert.
-    if (
-      record.locationClassification !==
-      "POSSIBLE LOCAL MATCH — VERIFY"
-    ) {
-      return {
-        state: nextState,
-        action: "UPDATE_LOCATION_REVIEW"
-      };
-    }
-
-    if (record.timeClassification === "EXPIRED") {
-      delete nextState.activeAlerts[original];
-    } else {
-      nextState.activeAlerts[original] = {
-        ...nextState.activeAlerts[original],
-        ...record,
-        originalKey: original
-      };
-    }
-
-    markProcessed(nextState, messageKey, record);
-
-    return {
-      state: nextState,
-      action: record.timeClassification === "EXPIRED"
-        ? "EXPIRED"
-        : "UPDATED"
-    };
-  }
-
-    if (record.timeClassification === "EXPIRED") {
-    markProcessed(nextState, messageKey, record);
-    return { state: nextState, action: "EXPIRED" };
-  }
-
-  if (
-    record.msgType !== "Alert" ||
-    record.timeClassification !==
-      "UNEXPIRED — manual review required"
-  ) {
-    return { state: nextState, action: "REVIEW" };
-  }
-
-  // Location screening is preliminary, not geographic verification.
-  // Only possible local matches may enter state for manual review.
-  if (
-    record.locationClassification !==
-    "POSSIBLE LOCAL MATCH — VERIFY"
-  ) {
-    return {
-      state: nextState,
-      action: "LOCATION_REVIEW"
-    };
-  }
-
-  nextState.activeAlerts[alertKey] = {
-    ...record,
-    originalKey: alertKey
-  };
-
-  markProcessed(nextState, messageKey, record);
-  return { state: nextState, action: "NEW_ALERT_REVIEW" };
-}
-
-function markProcessed(state, messageKey, record) {
-  state.processedMessages[messageKey] = {
-    sender: record.sender,
-    identifier: record.identifier,
-    sent: record.sent,
-    msgType: record.msgType
-  };
-}
-
-
-
-function selectCapCandidates(
-  items,
-  maxChecks = MAX_CAP_CHECKS,
-  referencedIds = []
-) {
-  const rankedItems = items
-    .map((item, index) => ({
-      ...item,
-      publishedAt: Date.parse(item.pubDate),
-      originalIndex: index
-    }))
-    .sort((a, b) => {
-      const aTime = Number.isNaN(a.publishedAt)
-        ? -Infinity
-        : a.publishedAt;
-      const bTime = Number.isNaN(b.publishedAt)
-        ? -Infinity
-        : b.publishedAt;
-
-      return bTime - aTime || a.originalIndex - b.originalIndex;
-    });
-
-  const referenced = new Set(referencedIds);
-
-  const priorityItems = rankedItems.filter(item =>
-    referenced.has(item.id)
-  );
-
-  const otherItems = rankedItems.filter(item =>
-    !referenced.has(item.id)
-  );
-
-  return [...priorityItems, ...otherItems].slice(0, maxChecks);
-}
-
-
-
-
-function findReferencedRssItems(items, references) {
-  const referencedBases = new Set();
-
-  for (const ref of references) {
-    if (!ref || typeof ref.identifier !== "string") {
-      continue;
-    }
-
-    const match = ref.identifier.match(/^IN-(\d+)_\d+$/);
-
-    if (match) {
-      referencedBases.add(match[1]);
-    }
-  }
-
-  return items.filter(item => {
-    if (!item.id) return false;
-
-    return referencedBases.has(String(item.id).trim());
-  });
-}
-
-function selectUnfetchedReferenceCandidates(
-  items,
-  references,
-  alreadyFetchedItems,
-  maxChecks
-) {
-  const alreadyFetchedLinks = new Set(
-    alreadyFetchedItems.map(item => item.link).filter(Boolean)
-  );
-
-  const referencedItems = findReferencedRssItems(items, references);
-  const unfetchedItems = referencedItems.filter(
-    item => item.link && !alreadyFetchedLinks.has(item.link)
-  );
-
-  const uniqueLinks = [...new Map(
-    unfetchedItems.map(item => [item.link, item])
-  ).values()];
-  return selectCapCandidates(uniqueLinks, maxChecks);
-}
-
-function capMatchesReference(cap, reference) {
-  if (!cap || !reference) {
-    return false;
-  }
-
-  return (
-    cap.sender === reference.sender &&
-    cap.identifier === reference.identifier &&
-    cap.sent === reference.sent
-  );
-}
-
-
-function analyzeBatch(records) {
-  const seenIds = new Set();
-  const seenMessages = new Set();
-
-  for (const record of records) {
-    const duplicateKey = `${record.sender}|${record.identifier}`;
-    const messageKey = `${duplicateKey}|${record.sent}`;
-
-    record.duplicateClassification = seenIds.has(duplicateKey)
-      ? "DUPLICATE ID IN THIS BATCH — REVIEW"
-      : "ID FIRST SEEN IN THIS BATCH";
-
-    record.messageClassification = seenMessages.has(messageKey)
-      ? "DUPLICATE MESSAGE — REVIEW"
-      : "MESSAGE FIRST SEEN IN THIS BATCH";
-
-    seenIds.add(duplicateKey);
-    seenMessages.add(messageKey);
-
-    if (record.timeClassification === "UPDATE — REVIEW") {
-      record.messageClassification = "UPDATE — LINK TO ORIGINAL";
-    } else if (
-      record.timeClassification === "CANCELLATION — REVIEW"
-    ) {
-      record.messageClassification = "CANCELLATION — REVIEW ORIGINAL";
-    }
-
-    if (record.references.length > 0) {
-      record.messageClassification +=
-        `; references ${record.references.map(ref => ref.identifier).join(", ")}`;
-    }
-  }
-}
-
-
-async function runStateSelfTests() {
-  const assert = require("node:assert/strict");
-  const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "safeguard-state-test-")
-  );
-
-  const testFile = path.join(tempDir, "alert-state.json");
-
-  const validState = {
-    version: 1,
-    processedMessages: {},
-    activeAlerts: {},
-    lastUpdated: null
-  };
-
-  let passed = 0;
-
-  async function check(name, test) {
-    try {
-      await test();
-      passed++;
-      console.log(`PASS: ${name}`);
-    } catch (error) {
-      console.error(`FAIL: ${name} — ${error.message}`);
-      throw error;
-    }
-  }
-
-  try {
-    await check("Valid state loads", async () => {
-      await fs.writeFile(testFile, JSON.stringify(validState));
-      const loaded = await loadCapState(testFile);
-      assert.deepEqual(loaded, validState);
-    });
-
-    await check("Missing file is rejected", async () => {
-      await assert.rejects(
-        loadCapState(path.join(tempDir, "missing.json")),
-        /missing/i
-      );
-    });
-
-    await check("Invalid JSON is rejected", async () => {
-      await fs.writeFile(testFile, "{invalid json");
-      await assert.rejects(
-        loadCapState(testFile),
-        /invalid JSON/i
-      );
-    });
-
-    await check("Invalid structure is rejected", async () => {
-      await fs.writeFile(
-        testFile,
-        JSON.stringify({ version: 99 })
-      );
-      await assert.rejects(
-        loadCapState(testFile),
-        /invalid structure/i
-      );
-    });
-
-    await check("Save and load round trip succeeds", async () => {
-      await saveCapState(validState, testFile);
-      const loaded = await loadCapState(testFile);
-
-      assert.equal(loaded.version, 1);
-      assert.deepEqual(loaded.processedMessages, {});
-      assert.deepEqual(loaded.activeAlerts, {});
-      assert.ok(typeof loaded.lastUpdated === "string");
-      assert.ok(Number.isFinite(Date.parse(loaded.lastUpdated)));
-    });
-
-    console.log(`State tests passed: ${passed}/5`);
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-async function runPersistenceSelfTests() {
-  const assert = require("node:assert/strict");
-  const tempDir = await fs.mkdtemp(
-    path.join(os.tmpdir(), "safeguard-persistence-test-")
-  );
-  const testFile = path.join(tempDir, "alert-state.json");
-
-  try {
-    let state = createEmptyCapState();
-    await saveCapState(state, testFile);
-
-    const alert = {
-      sender: "Synthetic-Test-Sender",
-      identifier: "SYNTHETIC-001",
-      sent: "2026-10-14T10:00:00Z",
-      msgType: "Alert",
-      event: "Synthetic Rain",
-      timeClassification: "UNEXPIRED — manual review required",
-      locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
-      references: []
-    };
-
-    // First run: process and persist a synthetic alert.
-    let result = applyCapMessageToState(state, alert);
-    assert.equal(result.action, "NEW_ALERT_REVIEW");
-    await saveCapState(result.state, testFile);
-
-    // Second run: reload state and detect the same message.
-    state = await loadCapState(testFile);
-    result = applyCapMessageToState(state, alert);
-    assert.equal(result.action, "DUPLICATE");
-
-    // Verify that the stored alert survived reloading.
-    assert.equal(
-      Object.keys(state.activeAlerts).length,
-      1
-    );
-
-    console.log("PASS: Synthetic alert saved and reloaded");
-    console.log("PASS: Repeated message detected across runs");
-    console.log("PASS: No live alerts or Firebase writes used");
-    console.log("Persistence tests passed: 3/3");
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
-  }
-}
-
-function runLocationSelfTests() {
-  const tests = [
-    ["Navi Mumbai", "Navi Mumbai", "POSSIBLE LOCAL MATCH — VERIFY"],
-    ["Kalamboli", "Kalamboli", "POSSIBLE LOCAL MATCH — VERIFY"],
-    ["Panvel", "Panvel", "POSSIBLE LOCAL MATCH — VERIFY"],
-    ["Bihar", "Bihar", "NO LOCAL KEYWORD MATCH"],
-    ["Isolated places", "Isolated places", "NEEDS MANUAL REVIEW"],
-    ["Local name only in description", "Bihar", "NO LOCAL KEYWORD MATCH"],
-    ["Thane alone", "Thane", "NO LOCAL KEYWORD MATCH"],
-    ["Vague area", "Your district", "NEEDS MANUAL REVIEW"],
-    ["Nearby localities in area", "Kalamboli, Panvel", "POSSIBLE LOCAL MATCH — VERIFY"],
-    ["Unrelated place", "An unrelated district", "NO LOCAL KEYWORD MATCH"]
-  ];
-
-  let failures = 0;
-  console.log("=== SafeGuard Location Self-Tests ===");
-  console.log("Mode: LOCAL TESTS ONLY");
-  console.log("SACHET requests: 0");
-  console.log("Firebase writes: 0");
-
-  for (const [name, area, expected] of tests) {
-    const actual = classifyLocation(area);
-    const passed = actual === expected;
-    console.log(`${passed ? "PASS" : "FAIL"}: ${name}`);
-    console.log(`  Expected: ${expected}`);
-    console.log(`  Actual:   ${actual}`);
-    if (!passed) failures++;
-  }
-
-  console.log(`Results: ${tests.length - failures}/${tests.length} passed`);
-  if (failures > 0) {
-    process.exitCode = 1;
-  } else {
-    console.log("All location tests passed.");
-  }
+  if (failures > 0) process.exitCode = 1;
+  else console.log("All location tests passed.");
 }
 
 function runCapSelfTests() {
   const tests = [];
   const check = (name, passed) => tests.push({ name, passed });
 
-function makeRecord(overrides = {}) {
-  return {
-    sender: "Test-Sender",
-    identifier: "CAP-001",
-    sent: "2026-10-13T10:00:00Z",
-    msgType: "Alert",
-    timeClassification: "UNEXPIRED — manual review required",
-    locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
-    references: [],
-    ...overrides
-  };
-}
+  function makeRecord(overrides = {}) {
+    return {
+      sender: "Test-Sender",
+      identifier: "CAP-001",
+      sent: "2026-10-13T10:00:00Z",
+      msgType: "Alert",
+      status: "Actual",
+      headline: "Heavy Rain",
+      title: "Heavy Rain",
+      area: "Navi Mumbai",
+      severity: "Moderate",
+      effective: new Date(Date.now() - 60_000).toISOString(),
+      expires: new Date(Date.now() + 60_000).toISOString(),
+      sourceUrl: "https://example.invalid/cap.xml",
+      timeClassification: "UNEXPIRED — manual review required",
+      locationClassification: "POSSIBLE LOCAL MATCH — VERIFY",
+      references: [],
+      ...overrides
+    };
+  }
 
   console.log("=== SafeGuard Synthetic CAP Tests ===");
   console.log("Mode: LOCAL TESTS ONLY");
@@ -1158,13 +908,11 @@ function makeRecord(overrides = {}) {
     emptyState.version === 1 &&
       typeof emptyState.processedMessages === "object" &&
       typeof emptyState.activeAlerts === "object" &&
+      typeof emptyState.reviewCandidates === "object" &&
       emptyState.lastUpdated === null
   );
 
-  const original = makeRecord({
-    identifier: "CAP-NEW",
-    event: "Heavy Rain"
-  });
+  const original = makeRecord({ identifier: "CAP-NEW", event: "Heavy Rain" });
   const newResult = applyCapMessageToState(createEmptyCapState(), original);
 
   check(
@@ -1173,9 +921,192 @@ function makeRecord(overrides = {}) {
       Object.keys(newResult.state.activeAlerts).length === 1
   );
 
+  const originalKey = `${original.sender}|${original.identifier}`;
+  const otherAlertKey = `${original.sender}|CAP-OTHER`;
+  const candidate = newResult.state.reviewCandidates[originalKey];
+  check(
+    "Candidate is stored separately with review details",
+    Boolean(candidate) &&
+      candidate.sourceIdentifier === original.identifier &&
+      candidate.originalIdentifier === original.identifier &&
+      candidate.headline === original.headline &&
+      candidate.area === original.area &&
+      candidate.severity === original.severity &&
+      candidate.effective === original.effective &&
+      candidate.expires === original.expires &&
+      candidate.reviewStatus === "PENDING REVIEW"
+  );
+  check(
+    "Candidate location is unverified and remains unpublished",
+    candidate.locationAssessment ===
+      "UNVERIFIED — KEYWORD MATCH ONLY; REVIEW REQUIRED" &&
+      candidate.publicationStatus === "NOT PUBLISHED" &&
+      candidate.notificationStatus === "NOT SENT"
+  );
+
+  const ambiguousAlert = makeRecord({
+    identifier: "CAP-AMBIGUOUS",
+    area: "Your district",
+    locationClassification: "NEEDS MANUAL REVIEW"
+  });
+  const ambiguousResult = applyCapMessageToState(
+    createEmptyCapState(),
+    ambiguousAlert
+  );
+  const ambiguousKey = `${ambiguousAlert.sender}|${ambiguousAlert.identifier}`;
+  const ambiguousCandidate = ambiguousResult.state.reviewCandidates[ambiguousKey];
+  check(
+    "Ambiguous location enters the review queue, not active alerts",
+    ambiguousResult.action === "LOCATION_REVIEW" &&
+      Boolean(ambiguousCandidate) &&
+      ambiguousCandidate.reviewStatus === "LOCATION REVIEW REQUIRED" &&
+      ambiguousCandidate.locationAssessment ===
+        "UNVERIFIED — LOCATION REQUIRES REVIEW" &&
+      Object.keys(ambiguousResult.state.activeAlerts).length === 0
+  );
+
+  const ambiguousCancel = makeRecord({
+    identifier: "CAP-AMBIGUOUS-CANCEL",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: ambiguousAlert.sender,
+      identifier: ambiguousAlert.identifier,
+      sent: ambiguousAlert.sent
+    }]
+  });
+  const ambiguousCancelResult = applyCapMessageToState(
+    ambiguousResult.state,
+    ambiguousCancel
+  );
+  check(
+    "Matching cancellation closes a review-only candidate",
+    ambiguousCancelResult.action === "CANCELLED_REVIEW_CANDIDATE" &&
+      ambiguousCancelResult.state.reviewCandidates[ambiguousKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE" &&
+      Object.keys(ambiguousCancelResult.state.activeAlerts).length === 0
+  );
+
+  const queueBeforeDuplicate = JSON.stringify(newResult.state.reviewCandidates);
+  const duplicateResult = applyCapMessageToState(newResult.state, original);
   check(
     "Repeated message is detected",
-    applyCapMessageToState(newResult.state, original).action === "DUPLICATE"
+    duplicateResult.action === "DUPLICATE" &&
+      JSON.stringify(duplicateResult.state.reviewCandidates) === queueBeforeDuplicate
+  );
+
+  const otherAlert = makeRecord({
+    identifier: "CAP-OTHER",
+    sent: "2026-10-13T11:00:00Z"
+  });
+  const twoAlertResult = applyCapMessageToState(newResult.state, otherAlert);
+
+  function makeUpdate(identifier, overrides = {}) {
+    const now = Date.now();
+    const update = makeRecord({
+      identifier,
+      sent: new Date(now).toISOString(),
+      msgType: "Update",
+      effective: new Date(now - 60_000).toISOString(),
+      expires: new Date(now + 60_000).toISOString(),
+      event: "Updated Rain",
+      references: [{
+        sender: original.sender,
+        identifier: original.identifier,
+        sent: original.sent
+      }],
+      ...overrides
+    });
+
+    update.timeClassification = classifyTime(update);
+    return update;
+  }
+
+  const validUpdate = makeUpdate("CAP-UPDATE-VALID");
+  const validUpdateResult = applyCapMessageToState(newResult.state, validUpdate);
+  const updatedTwoAlertResult = applyCapMessageToState(
+    twoAlertResult.state,
+    validUpdate
+  );
+  check(
+    "Valid Update updates its referenced alert",
+    validUpdateResult.action === "UPDATED" &&
+      validUpdateResult.state.activeAlerts[originalKey].event === "Updated Rain" &&
+      validUpdateResult.state.reviewCandidates[originalKey].sourceIdentifier ===
+        validUpdate.identifier &&
+      validUpdateResult.state.reviewCandidates[originalKey].originalIdentifier ===
+        original.identifier &&
+      validUpdateResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "PENDING REVIEW"
+  );
+
+  const beforeUpdateAlerts = JSON.stringify(newResult.state.activeAlerts);
+  const beforeUpdateCandidates = JSON.stringify(newResult.state.reviewCandidates);
+  const updateTimestampCases = [
+    [
+      "Expired Update is rejected",
+      {
+        effective: new Date(Date.now() - 120_000).toISOString(),
+        expires: new Date(Date.now() - 60_000).toISOString()
+      },
+      "EXPIRED"
+    ],
+    [
+      "Future-dated Update is rejected",
+      {
+        effective: new Date(Date.now() + 60_000).toISOString(),
+        expires: new Date(Date.now() + 120_000).toISOString()
+      },
+      "FUTURE — not active yet"
+    ],
+    ["Update with missing expiry is rejected", { expires: "" }, "REVIEW — expiry missing"],
+    ["Update with invalid expiry is rejected", { expires: "not a date" }, "REVIEW — expiry invalid"],
+    ["Update with missing effective time is rejected", { effective: "" }, "REVIEW — effective time missing"],
+    ["Update with invalid effective time is rejected", { effective: "not a date" }, "REVIEW — effective time invalid"]
+  ];
+
+  for (const [name, overrides, expectedClassification] of updateTimestampCases) {
+    const update = makeUpdate(`CAP-UPDATE-${name}`, overrides);
+    const updateResult = applyCapMessageToState(newResult.state, update);
+    check(
+      name,
+      update.timeClassification === expectedClassification &&
+        updateResult.action === "UPDATE_TIME_REVIEW" &&
+      JSON.stringify(updateResult.state.activeAlerts) === beforeUpdateAlerts &&
+      JSON.stringify(updateResult.state.reviewCandidates) === beforeUpdateCandidates
+    );
+  }
+
+  const manualLocationUpdate = makeUpdate("CAP-UPDATE-MANUAL-LOCATION", {
+    area: "Your district",
+    locationClassification: "NEEDS MANUAL REVIEW"
+  });
+  const manualLocationResult = applyCapMessageToState(
+    twoAlertResult.state,
+    manualLocationUpdate
+  );
+  const manualLocationCancel = makeRecord({
+    identifier: "CAP-CANCEL-MANUAL-LOCATION",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: manualLocationUpdate.sender,
+      identifier: manualLocationUpdate.identifier,
+      sent: manualLocationUpdate.sent
+    }]
+  });
+  const manualLocationCancelResult = applyCapMessageToState(
+    manualLocationResult.state,
+    manualLocationCancel
+  );
+  check(
+    "Cancellation deactivates the linked alert after a location-review Update",
+    manualLocationResult.action === "UPDATE_LOCATION_REVIEW" &&
+      manualLocationCancelResult.action === "CANCELLED" &&
+      !manualLocationCancelResult.state.activeAlerts[originalKey] &&
+      Boolean(manualLocationCancelResult.state.activeAlerts[otherAlertKey]) &&
+      manualLocationCancelResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE"
   );
 
   const cancel = makeRecord({
@@ -1184,457 +1115,57 @@ function makeRecord(overrides = {}) {
     msgType: "Cancel",
     timeClassification: "CANCELLATION — REVIEW",
     references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-NEW",
-      sent: original.sent
+      sender: validUpdate.sender,
+      identifier: validUpdate.identifier,
+      sent: validUpdate.sent
     }]
   });
-  const cancelResult = applyCapMessageToState(newResult.state, cancel);
+  const cancelResult = applyCapMessageToState(updatedTwoAlertResult.state, cancel);
 
   check(
-    "Cancellation removes original alert",
+    "Matching Cancel deactivates only its referenced alert",
     cancelResult.action === "CANCELLED" &&
-      Object.keys(cancelResult.state.activeAlerts).length === 0
+      !cancelResult.state.activeAlerts[originalKey] &&
+      Boolean(cancelResult.state.activeAlerts[otherAlertKey]) &&
+      cancelResult.state.reviewCandidates[originalKey].reviewStatus ===
+        "CANCELLED — NOT ACTIVE" &&
+      cancelResult.state.reviewCandidates[otherAlertKey].reviewStatus ===
+        "PENDING REVIEW"
   );
 
-  const expired = makeRecord({
-    identifier: "CAP-EXPIRED",
-    timeClassification: "EXPIRED"
+  const unmatchedCancel = makeRecord({
+    identifier: "CAP-CANCEL-UNMATCHED",
+    sent: "2026-10-13T10:10:00Z",
+    msgType: "Cancel",
+    timeClassification: "CANCELLATION — REVIEW",
+    references: [{
+      sender: validUpdate.sender,
+      identifier: validUpdate.identifier,
+      sent: "2026-10-13T10:01:00Z"
+    }]
   });
+  const unmatchedCancelResult = applyCapMessageToState(
+    updatedTwoAlertResult.state,
+    unmatchedCancel
+  );
+
+  check(
+    "Unmatched Cancel leaves all active alerts unchanged",
+    unmatchedCancelResult.action === "CANCELLATION_REVIEW" &&
+      JSON.stringify(unmatchedCancelResult.state.activeAlerts) ===
+        JSON.stringify(updatedTwoAlertResult.state.activeAlerts) &&
+      JSON.stringify(unmatchedCancelResult.state.reviewCandidates) ===
+        JSON.stringify(updatedTwoAlertResult.state.reviewCandidates)
+  );
+
+  const expired = makeRecord({ identifier: "CAP-EXPIRED", timeClassification: "EXPIRED" });
   const expiredResult = applyCapMessageToState(createEmptyCapState(), expired);
 
   check(
     "Expired alert is not added to active state",
     expiredResult.action === "EXPIRED" &&
-      Object.keys(expiredResult.state.activeAlerts).length === 0
-  );
-
-  const originalUpdateTarget = makeRecord({
-    identifier: "CAP-ORIGINAL",
-    event: "Heavy Rain"
-  });
-  const updateStart = applyCapMessageToState(
-    createEmptyCapState(),
-    originalUpdateTarget
-  );
-  const update = makeRecord({
-    identifier: "CAP-UPDATE",
-    sent: "2026-10-13T10:05:00Z",
-    msgType: "Update",
-    timeClassification: "UPDATE — REVIEW",
-    event: "Severe Rain",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-ORIGINAL",
-      sent: originalUpdateTarget.sent
-    }]
-  });
-  const updateResult = applyCapMessageToState(updateStart.state, update);
-
-  check(
-    "Update modifies referenced original alert",
-    updateResult.action === "UPDATED" &&
-      updateResult.state.activeAlerts["Test-Sender|CAP-ORIGINAL"]?.event === "Severe Rain" &&
-      Object.keys(updateResult.state.activeAlerts).length === 1
-  );
-
-  
-  const nonlocalUpdate = makeRecord({
-    identifier: "CAP-NONLOCAL-UPDATE",
-    sent: "2026-10-13T10:06:00Z",
-    msgType: "Update",
-    timeClassification: "UPDATE — REVIEW",
-    locationClassification: "NO LOCAL KEYWORD MATCH",
-    event: "Nonlocal event",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-ORIGINAL",
-      sent: originalUpdateTarget.sent
-    }]
-  });
-
-  const nonlocalUpdateResult = applyCapMessageToState(
-    updateStart.state,
-    nonlocalUpdate
-  );
-
-  check(
-    "Nonlocal update cannot overwrite original alert",
-    nonlocalUpdateResult.action === "UPDATE_LOCATION_REVIEW" &&
-      nonlocalUpdateResult.state.activeAlerts[
-        "Test-Sender|CAP-ORIGINAL"
-      ]?.event === "Heavy Rain" &&
-      !nonlocalUpdateResult.state.processedMessages[
-        `${nonlocalUpdate.sender}|${nonlocalUpdate.identifier}|${nonlocalUpdate.sent}`
-      ]
-  );
-
-  const invalidMessageResult = applyCapMessageToState(
-    updateStart.state,
-    makeRecord({ identifier: "(missing ID)" })
-  );
-
-  check(
-    "Missing identifier is rejected without changing state",
-    invalidMessageResult.action === "INVALID_MESSAGE" &&
-      invalidMessageResult.state === updateStart.state
-  );
-
-  const unknownUpdate = makeRecord({
-    identifier: "CAP-UNKNOWN-UPDATE",
-    sent: "2026-10-13T10:10:00Z",
-    msgType: "Update",
-    timeClassification: "UPDATE — REVIEW",
-    event: "Severe Rain",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-NOT-FOUND",
-      sent: "2026-10-13T09:00:00Z"
-    }]
-  });
-  const unknownUpdateResult = applyCapMessageToState(
-    createEmptyCapState(),
-    unknownUpdate
-  );
-  const unknownUpdateKey =
-    `${unknownUpdate.sender}|${unknownUpdate.identifier}|${unknownUpdate.sent}`;
-
-  check(
-    "Update with unknown reference requires review",
-    unknownUpdateResult.action === "UPDATE_REVIEW" &&
-      Object.keys(unknownUpdateResult.state.activeAlerts).length === 0
-  );
-  check(
-    "Unknown update remains retryable",
-    !unknownUpdateResult.state.processedMessages[unknownUpdateKey]
-  );
-
-  check(
-    "Unknown update remains retryable until original is available",
-    unknownUpdateResult.action === "UPDATE_REVIEW" &&
-      !unknownUpdateResult.state.processedMessages[unknownUpdateKey] &&
-      Object.keys(unknownUpdateResult.state.activeAlerts).length === 0
-  );
-
-  const unknownCancel = makeRecord({
-    identifier: "CAP-UNKNOWN-CANCEL",
-    sent: "2026-10-13T10:15:00Z",
-    msgType: "Cancel",
-    timeClassification: "CANCELLATION — REVIEW",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-NOT-FOUND",
-      sent: "2026-10-13T09:00:00Z"
-    }]
-  });
-  const unknownCancelResult = applyCapMessageToState(
-    createEmptyCapState(),
-    unknownCancel
-  );
-  const unknownCancelKey =
-    `${unknownCancel.sender}|${unknownCancel.identifier}|${unknownCancel.sent}`;
-
-  check(
-    "Unknown cancellation remains retryable",
-    unknownCancelResult.action === "CANCELLATION_REVIEW" &&
-      !unknownCancelResult.state.processedMessages[unknownCancelKey]
-  );
-
-  const retryUpdateOriginal = applyCapMessageToState(
-    unknownUpdateResult.state,
-    makeRecord({
-      identifier: "CAP-NOT-FOUND",
-      sent: "2026-10-13T09:00:00Z",
-      event: "Heavy Rain"
-    })
-  );
-  const retryUpdateResult = applyCapMessageToState(
-    retryUpdateOriginal.state,
-    unknownUpdate
-  );
-
-  check(
-    "Unknown update succeeds on retry",
-    retryUpdateResult.action === "UPDATED" &&
-      retryUpdateResult.state.activeAlerts["Test-Sender|CAP-NOT-FOUND"]?.event === "Severe Rain"
-  );
-
-  const retryCancelOriginal = applyCapMessageToState(
-    unknownCancelResult.state,
-    makeRecord({
-      identifier: "CAP-NOT-FOUND",
-      sent: "2026-10-13T09:00:00Z"
-    })
-  );
-  const retryCancelResult = applyCapMessageToState(
-    retryCancelOriginal.state,
-    unknownCancel
-  );
-
-  check(
-    "Unknown cancellation succeeds on retry",
-    retryCancelResult.action === "CANCELLED" &&
-      !retryCancelResult.state.activeAlerts["Test-Sender|CAP-NOT-FOUND"]
-  );
-
-  const sortingItems = [
-    { id: "older", pubDate: "Tue, 13 Oct 2026 10:00:00 GMT" },
-    { id: "newer", pubDate: "Tue, 13 Oct 2026 12:00:00 GMT" },
-    { id: "missing", pubDate: "" },
-    { id: "invalid", pubDate: "not-a-date" }
-  ];
-  const sortedItems = sortingItems
-    .map((item, index) => ({
-      ...item,
-      publishedAt: Date.parse(item.pubDate),
-      originalIndex: index
-    }))
-    .sort((a, b) => {
-      const aTime = Number.isNaN(a.publishedAt) ? -Infinity : a.publishedAt;
-      const bTime = Number.isNaN(b.publishedAt) ? -Infinity : b.publishedAt;
-      return bTime - aTime || a.originalIndex - b.originalIndex;
-    });
-
-  check(
-    "Publication dates sort newest first",
-    sortedItems[0].id === "newer" && sortedItems[1].id === "older"
-  );
-  check(
-    "Missing and invalid dates sort last",
-    sortedItems[2].id === "missing" && sortedItems[3].id === "invalid"
-  );
-
-  
-  const candidateItems = Array.from({ length: 35 }, (_, index) => ({
-    id: `CAP-${index + 1}`,
-    pubDate: new Date(
-      Date.UTC(2026, 9, 14, 12, index)
-    ).toUTCString()
-  }));
-
-  const selectedCandidates = selectCapCandidates(candidateItems, 30);
-
-  check(
-    "Candidate selection respects the request limit",
-    selectedCandidates.length === 30
-  );
-
-  check(
-    "Candidate selection keeps newest entries first",
-    selectedCandidates[0].id === "CAP-35" &&
-      selectedCandidates[29].id === "CAP-6"
-  );
-
-    const referenceTestItems = [
-    {
-      id: "1791976061962016",
-      title: "RSS entry with matching numeric base"
-    },
-    {
-      id: "1791974979048007",
-      title: "Unrelated RSS entry"
-    }
-  ];
-
-  const referenceTestRefs = [
-    {
-      sender: "IMD-Patna",
-      identifier: "IN-1791976061962016_59",
-      sent: "2026-10-14T16:37:13+05:30"
-    }
-  ];
-
-  const foundReferencedItems = findReferencedRssItems(
-    referenceTestItems,
-    referenceTestRefs
-  );
-
-  check(
-    "RSS GUID base can be identified from CAP reference",
-    foundReferencedItems.length === 1 &&
-      foundReferencedItems[0].id === "1791976061962016"
-  );
-
-  check(
-    "Unrelated RSS entry is not selected",
-    !foundReferencedItems.some(
-      item => item.id === "1791974979048007"
-    )
-  );
-
-  check(
-    "Missing referenced original returns no match",
-    findReferencedRssItems(
-      referenceTestItems,
-      [{
-        sender: "IMD-Missing",
-        identifier: "IN-9999999999999999_59"
-      }]
-    ).length === 0
-  );
-  
-  const exactMatchCap = {
-    sender: "IMD-Patna",
-    identifier: "IN-1791976061962016_59",
-    sent: "2026-10-14T16:37:13+05:30"
-  };
-
-  const exactMatchReference = {
-    sender: "IMD-Patna",
-    identifier: "IN-1791976061962016_59",
-    sent: "2026-10-14T16:37:13+05:30"
-  };
-
-  check(
-    "Exact CAP reference match is accepted",
-    capMatchesReference(exactMatchCap, exactMatchReference)
-  );
-
-  check(
-    "CAP reference with wrong sender is rejected",
-    !capMatchesReference(
-      { ...exactMatchCap, sender: "Wrong-Sender" },
-      exactMatchReference
-    )
-  );
-
-  check(
-    "CAP reference with wrong identifier is rejected",
-    !capMatchesReference(
-      { ...exactMatchCap, identifier: "IN-WRONG_59" },
-      exactMatchReference
-    )
-  );
-
-  check(
-    "CAP reference with wrong sent time is rejected",
-    !capMatchesReference(
-      { ...exactMatchCap, sent: "2026-10-14T16:38:13+05:30" },
-      exactMatchReference
-    )
-  );
-  
-  const alreadyFetchedReferenceItems = [
-    {
-      id: "1791976061962016",
-      link: "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=already-fetched"
-    }
-  ];
-
-  const referenceItemsForSelection = [
-    ...referenceTestItems,
-    {
-      id: "1791976061962016",
-      title: "Duplicate RSS entry",
-      link: "https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=not-fetched"
-    }
-  ];
-
-  const unfetchedReferenceCandidates =
-    selectUnfetchedReferenceCandidates(
-      referenceItemsForSelection,
-      referenceTestRefs,
-      alreadyFetchedReferenceItems,
-      5
-    );
-
-  check(
-    "Reference selection excludes already-fetched RSS links",
-    unfetchedReferenceCandidates.length === 1 &&
-      unfetchedReferenceCandidates[0].link.endsWith(
-        "identifier=not-fetched"
-      )
-  );
-
-  check(
-    "Reference selection respects its request limit",
-    selectUnfetchedReferenceCandidates(
-      referenceItemsForSelection,
-      referenceTestRefs,
-      [],
-      0
-    ).length === 0
-  );
-  
-  const referencedOriginalId = "CAP-1";
-
-  const prioritizedCandidates = selectCapCandidates(
-    candidateItems,
-    30,
-    [referencedOriginalId]
-  );
-
-  check(
-    "Referenced original is prioritized within request limit",
-    prioritizedCandidates.length === 30 &&
-      prioritizedCandidates[0].id === referencedOriginalId &&
-      prioritizedCandidates.some(
-        item => item.id === referencedOriginalId
-      )
-  );
-
-  const duplicates = [
-    makeRecord(),
-    makeRecord({ sent: "2026-10-13T10:05:00Z" })
-  ];
-  analyzeBatch(duplicates);
-  check(
-    "Repeated ID is detected",
-    duplicates[1].duplicateClassification === "DUPLICATE ID IN THIS BATCH — REVIEW"
-  );
-
-  const batchUpdate = makeRecord({
-    identifier: "CAP-002",
-    msgType: "Update",
-    timeClassification: "UPDATE — REVIEW",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-ORIGINAL",
-      sent: "2026-10-13T09:00:00Z"
-    }]
-  });
-  analyzeBatch([batchUpdate]);
-  check(
-    "Update links to original",
-    batchUpdate.messageClassification.includes("UPDATE — LINK TO ORIGINAL") &&
-      batchUpdate.messageClassification.includes("CAP-ORIGINAL")
-  );
-
-  const batchCancel = makeRecord({
-    identifier: "CAP-003",
-    msgType: "Cancel",
-    timeClassification: "CANCELLATION — REVIEW",
-    references: [{
-      sender: "Test-Sender",
-      identifier: "CAP-ORIGINAL",
-      sent: "2026-10-13T09:00:00Z"
-    }]
-  });
-  analyzeBatch([batchCancel]);
-  check(
-    "Cancellation links to original",
-    batchCancel.messageClassification.includes("CANCELLATION — REVIEW ORIGINAL") &&
-      batchCancel.messageClassification.includes("CAP-ORIGINAL")
-  );
-
-  const now = Date.now();
-  check(
-    "Expired alert is classified correctly",
-    classifyTime({
-      msgType: "Alert",
-      status: "Actual",
-      effective: new Date(now - 7200000).toISOString(),
-      expires: new Date(now - 3600000).toISOString()
-    }) === "EXPIRED"
-  );
-  check(
-    "Future alert is not marked active",
-    classifyTime({
-      msgType: "Alert",
-      status: "Actual",
-      effective: new Date(now + 3600000).toISOString(),
-      expires: new Date(now + 7200000).toISOString()
-    }) === "FUTURE — not active yet"
+      Object.keys(expiredResult.state.activeAlerts).length === 0 &&
+      Object.keys(expiredResult.state.reviewCandidates).length === 0
   );
 
   let failures = 0;
@@ -1644,42 +1175,37 @@ function makeRecord(overrides = {}) {
   }
 
   console.log(`Results: ${tests.length - failures}/${tests.length} passed`);
-  if (failures > 0) {
-    process.exitCode = 1;
-  } else {
-    console.log("All synthetic CAP tests passed.");
-  }
+  if (failures > 0) process.exitCode = 1;
+  else console.log("All synthetic CAP tests passed.");
 }
 
-// Normal SACHET dry run: read-only; no Firebase writes.
-async function main() {
+async function main({
+  loadState = loadCapState,
+  saveState = saveCapState,
+  fetchFeed = fetchText
+} = {}) {
   console.log("=== SafeGuard CAP Message Handling Dry Run ===");
   console.log("Mode: READ-ONLY; no Firebase writes");
   console.log(`CAP request limit: ${MAX_CAP_CHECKS}`);
   console.log(`Concurrent requests: ${CONCURRENCY}`);
 
-  const rss = await fetchText(FEED_URL);
+  let state;
+  try {
+    state = await loadState();
+  } catch (err) {
+    console.error("Failed to load existing state:", err.message);
+    process.exitCode = 1;
+    return;
+  }
+
+  const rss = await fetchFeed(FEED_URL);
   const items = parseRssItems(rss);
+  const validItems = items.filter(item => item.link && validCapUrl(item.link));
+  const initialCheckLimit = MAX_CAP_CHECKS - REFERENCE_CHECK_RESERVE;
+  const candidates = selectCapCandidates(validItems, initialCheckLimit);
 
-  const validItems = items.filter(
-    item => item.link && validCapUrl(item.link)
-  );
- 
-const initialCheckLimit =
-  MAX_CAP_CHECKS - REFERENCE_CHECK_RESERVE;
-
-const candidates = selectCapCandidates(
-  validItems,
-  initialCheckLimit
-);
- 
-console.log(
-  `Initial CAP request budget: ${initialCheckLimit}`
-);
-console.log(
-  `Reserved reference-check budget: ${REFERENCE_CHECK_RESERVE}`
-);
-
+  console.log(`Initial CAP request budget: ${initialCheckLimit}`);
+  console.log(`Reserved reference-check budget: ${REFERENCE_CHECK_RESERVE}`);
   console.log(`RSS items found: ${items.length}`);
   console.log(`Valid CAP links: ${validItems.length}`);
   console.log(`CAP records selected: ${candidates.length}`);
@@ -1689,47 +1215,37 @@ console.log(
   const checkedLinks = new Set();
   let capRequests = 0;
 
-  
-async function fetchCandidates(batch) {
-  let nextIndex = 0;
-  const batchResults = [];
+  async function fetchCandidates(batch) {
+    let nextIndex = 0;
+    const batchResults = [];
 
-  async function worker() {
-    while (nextIndex < batch.length) {
-      const item = batch[nextIndex++];
+    async function worker() {
+      while (nextIndex < batch.length) {
+        const item = batch[nextIndex++];
+        if (capRequests >= MAX_CAP_CHECKS) return;
+        capRequests++;
 
-      // Count every attempted request, including failures, before starting it.
-      if (capRequests >= MAX_CAP_CHECKS) return;
-      capRequests++;
+        if (item.link) checkedLinks.add(item.link);
 
-      if (item.link) checkedLinks.add(item.link);
-
-      try {
-        const record = await checkCap(item);
-        results.push(record);
-        batchResults.push(record);
-      } catch (error) {
-        errors.push({ title: item.title, error: error.message });
-        console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
-        // Continue to the next item after a failed request.
+        try {
+          const record = await checkCap(item);
+          results.push(record);
+          batchResults.push(record);
+        } catch (error) {
+          errors.push({ title: item.title, error: error.message });
+          console.log(`FETCH ERROR: ${item.title} | ${error.message}`);
+        }
       }
     }
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, batch.length) }, () => worker())
+    );
+
+    return batchResults;
   }
 
-  await Promise.all(
-    Array.from(
-      { length: Math.min(CONCURRENCY, batch.length) },
-      () => worker()
-    )
-  );
-    
-  return batchResults;
-}
-
   const initialRecords = await fetchCandidates(candidates);
-
-  // Fetch referenced originals only when their RSS GUID maps to a CAP ID
-  // base. Exact sender, identifier, and sent time are checked after fetching.
   const references = initialRecords.flatMap(record => record.references || []);
   const remainingBudget = Math.max(0, MAX_CAP_CHECKS - capRequests);
   const referenceCandidates = selectUnfetchedReferenceCandidates(
@@ -1756,22 +1272,17 @@ async function fetchCandidates(batch) {
   }
 
   const exactReferenceRecords = new Set(
-    referenceRecords.filter(
-      record => record.referenceVerification === "EXACT REFERENCE MATCH"
-    )
+    referenceRecords.filter(record => record.referenceVerification === "EXACT REFERENCE MATCH")
   );
+
   for (const record of referenceRecords) {
     if (!exactReferenceRecords.has(record)) {
       const index = results.indexOf(record);
       if (index !== -1) results.splice(index, 1);
-      console.log(
-        `REFERENCE MISMATCH: ${record.sender}|${record.identifier}|${record.sent}`
-      );
+      console.log(`REFERENCE MISMATCH: ${record.sender}|${record.identifier}|${record.sent}`);
     }
   }
 
-  // Keep one record for each sender/identifier/sent triple, preserving the
-  // first occurrence and its fetch metadata.
   const deduplicated = new Map();
   for (const record of results) {
     const key = `${record.sender}|${record.identifier}|${record.sent}`;
@@ -1781,13 +1292,8 @@ async function fetchCandidates(batch) {
 
   analyzeBatch(results);
 
-  // Persistent-state preview only: do not save or publish alerts.
-  const state = await loadCapState();
   let previewState = state;
   const stateActions = {};
-
-  // Process older CAP messages first so referenced originals in this batch
-  // are available before their updates or cancellations.
   const stateProcessingRecords = [...results].sort((a, b) => {
     const aSent = Date.parse(a.sent);
     const bSent = Date.parse(b.sent);
@@ -1799,9 +1305,7 @@ async function fetchCandidates(batch) {
   for (const record of stateProcessingRecords) {
     const result = applyCapMessageToState(previewState, record);
     previewState = result.state;
-
-    stateActions[result.action] =
-      (stateActions[result.action] || 0) + 1;
+    stateActions[result.action] = (stateActions[result.action] || 0) + 1;
   }
 
   console.log("\n=== PERSISTENT STATE PREVIEW ===");
@@ -1809,7 +1313,16 @@ async function fetchCandidates(batch) {
   console.log(`Previously active alerts: ${Object.keys(state.activeAlerts).length}`);
   console.log(`Preview active alerts: ${Object.keys(previewState.activeAlerts).length}`);
   console.log("State actions:", JSON.stringify(stateActions));
-  console.log("State saved: NO");
+
+  let stateSaved = false;
+  try {
+    stateSaved = await saveState(previewState);
+  } catch (err) {
+    console.warn("State save failed:", err.message);
+    stateSaved = false;
+  }
+
+  console.log(`State saved: ${stateSaved ? "YES" : "NO"}`);
   console.log("Firebase writes: 0");
   console.log(`CAP requests attempted (including failures): ${capRequests}/${MAX_CAP_CHECKS}`);
   console.log(`Second-pass reference candidates fetched: ${referenceRecords.length}`);
@@ -1835,9 +1348,7 @@ async function fetchCandidates(batch) {
 
     if (record.references.length > 0) {
       for (const ref of record.references) {
-        console.log(
-          `Reference: sender=${ref.sender}, id=${ref.identifier}, sent=${ref.sent}`
-        );
+        console.log(`Reference: sender=${ref.sender}, id=${ref.identifier}, sent=${ref.sent}`);
       }
     } else {
       console.log("References: none provided");
@@ -1849,8 +1360,7 @@ async function fetchCandidates(batch) {
   const locationCount = classification =>
     results.filter(record => record.locationClassification === classification).length;
   const duplicateCount = results.filter(
-    record =>
-      record.duplicateClassification === "DUPLICATE ID IN THIS BATCH — REVIEW"
+    record => record.duplicateClassification === "DUPLICATE ID IN THIS BATCH — REVIEW"
   ).length;
 
   console.log("\n=== SUMMARY ===");
@@ -1861,22 +1371,15 @@ async function fetchCandidates(batch) {
   console.log(`Update messages: ${count("UPDATE — REVIEW")}`);
   console.log(`Cancellation messages: ${count("CANCELLATION — REVIEW")}`);
   console.log(`Expired alerts: ${count("EXPIRED")}`);
-  console.log(
-    `Possible local matches: ${locationCount("POSSIBLE LOCAL MATCH — VERIFY")}`
-  );
-  console.log(
-    `No local keyword match: ${locationCount("NO LOCAL KEYWORD MATCH")}`
-  );
-  console.log(
-    `Location manual review: ${locationCount("NEEDS MANUAL REVIEW")}`
-  );
+  console.log(`Possible local matches: ${locationCount("POSSIBLE LOCAL MATCH — VERIFY")}`);
+  console.log(`No local keyword match: ${locationCount("NO LOCAL KEYWORD MATCH")}`);
+  console.log(`Location manual review: ${locationCount("NEEDS MANUAL REVIEW")}`);
   console.log("Firebase writes: 0");
   console.log("Automatic alerts published: 0");
   console.log("Note: duplicate detection covers this batch only.");
   console.log("Location results are keyword screening, not geographic verification.");
   console.log("Dry run complete.");
 }
-
 
 if (process.argv.includes("--test-state")) {
   runStateSelfTests().catch(error => {
@@ -1892,6 +1395,20 @@ if (process.argv.includes("--test-state")) {
   runLocationSelfTests();
 } else if (process.argv.includes("--test-cap")) {
   runCapSelfTests();
+} else if (process.argv.includes("--review-queue")) {
+  readReviewCandidates()
+    .then(reviewCandidates => {
+      console.log(JSON.stringify({
+        mode: "READ-ONLY REVIEW QUEUE",
+        publicationStatus: "NOT PUBLISHED",
+        notificationStatus: "NOT SENT",
+        candidates: Object.values(reviewCandidates)
+      }, null, 2));
+    })
+    .catch(error => {
+      console.error("REVIEW QUEUE READ FAILED:", error.message);
+      process.exitCode = 1;
+    });
 } else {
   main().catch(error => {
     console.error("DRY RUN FAILED:", error.message);
