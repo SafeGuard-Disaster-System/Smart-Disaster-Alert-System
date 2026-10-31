@@ -1,0 +1,19 @@
+SAFEGUARD FIREBASE ADMIN SETUP
+
+1. Firebase Console > Authentication > Sign-in method: enable Email/Password.
+2. Authentication > Users: confirm the administrator account UID is exactly:
+   XviHAq7soBMa2wVdZXJuwNzGH1R2
+3. Realtime Database > Rules: replace the expired temporary rules with the contents of firebase-database.rules.json, review, then Publish.
+4. Deploy the updated admin.html and the project's existing files to your hosting provider.
+
+Rules behavior:
+- Public visitors can read activeDisasterAlerts and alertHistory.
+- Only the specified authenticated UID can write to those two collections.
+- All other database paths remain denied.
+
+The existing JavaScript uses collection-level set() operations, so write permission is deliberately assigned at each collection node. Do not change this to child-only write rules without first changing the application code.
+
+Automatic SACHET workflow:
+- The scheduled GitHub Actions workflow main.yml has been removed from this project package, so it will no longer run after this version is deployed to GitHub. The SACHET parser source is retained but is not scheduled or connected to alert publishing.
+
+Test after deployment: sign in, create a test alert, confirm it appears on the public page, resolve it, and verify it appears in alert history.
