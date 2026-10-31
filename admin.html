@@ -1,0 +1,3010 @@
+<!DOCTYPE html>
+
+ 
+
+<html lang="en">
+
+ 
+
+ 
+
+ 
+
+<head>
+
+ 
+
+ 
+
+ 
+
+    <meta charset="UTF-8">
+
+ 
+
+ 
+
+ 
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+ 
+
+ 
+
+ 
+
+    <title>SafeGuard | Admin Panel</title>
+
+ 
+
+ 
+
+ 
+
+    <link
+
+ 
+
+        rel="stylesheet"
+
+ 
+
+        href="style.css"
+
+ 
+
+    >
+
+ 
+
+ 
+
+ 
+
+</head>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+<body class="admin-auth-locked">
+
+    <style>
+        body.admin-auth-locked > :not(#adminAuthGate) { visibility: hidden !important; pointer-events: none !important; }
+        #adminAuthGate { position: fixed; inset: 0; z-index: 999999; display: flex; align-items: center; justify-content: center; padding: 24px; background: #07111f; color: #f8fafc; font-family: Arial, sans-serif; }
+        #adminAuthGate .auth-card { width: min(100%, 420px); padding: 30px; border: 1px solid rgba(148,163,184,.25); border-radius: 18px; background: #111e30; box-shadow: 0 24px 70px rgba(0,0,0,.4); }
+        #adminAuthGate h1 { margin: 0 0 8px; font-size: 25px; }
+        #adminAuthGate p { color: #b8c5d6; line-height: 1.5; }
+        #adminAuthGate label { display:block; margin: 16px 0 7px; font-size: 14px; }
+        #adminAuthGate input { box-sizing:border-box; width:100%; padding:13px; border:1px solid #40516a; border-radius:9px; background:#0b1626; color:#fff; font-size:15px; }
+        #adminAuthGate button { width:100%; margin-top:20px; padding:13px; border:0; border-radius:9px; background:#16865d; color:white; font-weight:700; cursor:pointer; }
+        #adminAuthMessage { min-height:20px; color:#fca5a5; font-size:13px; }
+        #adminLogoutButton { position:fixed; top:14px; right:18px; z-index:99999; padding:9px 14px; border:0; border-radius:8px; background:#b42318; color:white; font-weight:700; cursor:pointer; }
+        body.admin-auth-locked #adminLogoutButton { display:none; }
+    </style>
+    <div id="adminAuthGate" role="dialog" aria-modal="true" aria-labelledby="adminAuthTitle">
+      <form class="auth-card" id="adminLoginForm">
+        <h1 id="adminAuthTitle">SafeGuard Admin Login</h1>
+        <p>Sign in with your authorized administrator account to manage disaster alerts.</p>
+        <label for="adminLoginEmail">Email address</label>
+        <input id="adminLoginEmail" type="email" autocomplete="username" required placeholder="Administrator email">
+        <label for="adminLoginPassword">Password</label>
+        <input id="adminLoginPassword" type="password" autocomplete="current-password" required placeholder="Password">
+        <button id="adminLoginSubmit" type="submit">Sign In</button>
+        <p id="adminAuthMessage" aria-live="polite"></p>
+      </form>
+    </div>
+    <button id="adminLogoutButton" type="button">Log out</button>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <!-- =====================================================
+
+ 
+
+         HEADER
+
+ 
+
+    ====================================================== -->
+
+ 
+
+ 
+
+ 
+
+    <header class="topbar">
+
+ 
+
+ 
+
+ 
+
+        <div class="brand">
+
+ 
+
+ 
+
+ 
+
+            <div class="logo">
+
+ 
+
+                🛡️
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+            <div>
+
+ 
+
+ 
+
+ 
+
+                <h1>
+
+ 
+
+                    SafeGuard
+
+ 
+
+                </h1>
+
+ 
+
+ 
+
+ 
+
+                <p>
+
+ 
+
+                    Emergency Control Center
+
+ 
+
+                </p>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <div class="system-status">
+
+ 
+
+ 
+
+ 
+
+            <span class="status-dot"></span>
+
+ 
+
+ 
+
+ 
+
+            System Online
+
+ 
+
+ 
+
+ 
+
+        </div>
+
+ 
+
+ 
+
+ 
+
+    </header>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <!-- =====================================================
+
+ 
+
+         MAIN
+
+ 
+
+    ====================================================== -->
+
+ 
+
+ 
+
+ 
+
+    <main class="container">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <!-- =================================================
+
+ 
+
+             CREATE ALERT
+
+ 
+
+        ================================================== -->
+
+ 
+
+ 
+
+ 
+
+        <section class="section">
+
+ 
+
+ 
+
+ 
+
+            <div class="section-title">
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+                    <span class="small-title">
+
+ 
+
+                        ADMINISTRATION
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+                    <h2>
+
+ 
+
+                        Create Emergency Alert
+
+ 
+
+                    </h2>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            <div class="admin-card">
+
+ 
+
+ 
+
+ 
+
+                <form id="alertForm">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <!-- DISASTER -->
+
+ 
+
+ 
+
+ 
+
+                    <div class="form-group">
+
+ 
+
+ 
+
+ 
+
+                        <label for="disaster">
+
+ 
+
+                            Disaster Type
+
+ 
+
+                        </label>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <select
+
+ 
+
+                            id="disaster"
+
+ 
+
+                            required
+
+ 
+
+                        >
+
+ 
+
+ 
+
+ 
+
+                            <option value="">
+
+ 
+
+                                Select disaster
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Flood">
+
+ 
+
+                                🌊 Flood
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Cyclone">
+
+ 
+
+                                🌪️ Cyclone
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Earthquake">
+
+ 
+
+                                🌍 Earthquake
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Fire">
+
+ 
+
+                                🔥 Fire
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Landslide">
+
+ 
+
+                                ⛰️ Landslide
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Tsunami">
+
+ 
+
+                                🌊 Tsunami
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                        </select>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <!-- LOCATION -->
+
+ 
+
+ 
+
+ 
+
+                    <div class="form-group">
+
+ 
+
+ 
+
+ 
+
+                        <label for="location">
+
+ 
+
+                            Affected Location
+
+ 
+
+                        </label>
+
+ 
+
+ 
+
+ 
+
+                        <div class="location-picker">
+
+ 
+
+ 
+
+ 
+
+                            <input
+
+ 
+
+                                type="text"
+
+ 
+
+                                id="location"
+
+ 
+
+                                placeholder="Search location, e.g. Borivali"
+
+ 
+
+                                autocomplete="off"
+
+ 
+
+                                required
+
+ 
+
+                            >
+
+ 
+
+ 
+
+ 
+
+                            <div
+
+ 
+
+                                id="locationSuggestions"
+
+ 
+
+                                class="location-suggestions"
+
+ 
+
+                            ></div>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+                        <p class="location-help">
+
+ 
+
+                            📍 Type a location and select the correct result.
+
+ 
+
+                        </p>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <!-- SEVERITY -->
+
+ 
+
+ 
+
+ 
+
+                    <div class="form-group">
+
+ 
+
+ 
+
+ 
+
+                        <label for="severity">
+
+ 
+
+                            Severity Level
+
+ 
+
+                        </label>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <select
+
+ 
+
+                            id="severity"
+
+ 
+
+                            required
+
+ 
+
+                        >
+
+ 
+
+ 
+
+ 
+
+                            <option value="">
+
+ 
+
+                                Select severity
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Low">
+
+ 
+
+                                🟢 Low
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="Medium">
+
+ 
+
+                                🟠 Medium
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                            <option value="High">
+
+ 
+
+                                🔴 High
+
+ 
+
+                            </option>
+
+ 
+
+ 
+
+ 
+
+                        </select>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+                    <!-- ALERT DURATION -->
+
+ 
+
+                    <div class="form-group">
+
+ 
+
+                        <label for="alertDuration">
+
+                            Alert Duration
+
+                        </label>
+
+ 
+
+                        <select id="alertDuration">
+
+ 
+
+                            <option value="1" data-unit="minutes">
+
+                                1 Minute (Test)
+
+                            </option>
+
+ 
+
+                            <option value="3">
+
+                                3 Hours
+
+                            </option>
+
+ 
+
+                            <option value="6">
+
+                                6 Hours
+
+                            </option>
+
+ 
+
+                            <option value="12">
+
+                                12 Hours
+
+                            </option>
+
+ 
+
+                            <option value="24">
+
+                                24 Hours
+
+                            </option>
+
+ 
+
+                            <option value="0" selected>
+
+                                No Automatic Expiry
+
+                            </option>
+
+ 
+
+                        </select>
+
+ 
+
+                        <p class="location-help">
+
+                            ⏱️ Choose how long this alert should remain active.
+
+                        </p>
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <!-- MESSAGE -->
+
+ 
+
+ 
+
+ 
+
+                    <div class="form-group">
+
+ 
+
+ 
+
+ 
+
+                        <label for="message">
+
+ 
+
+                            Emergency Message
+
+ 
+
+                        </label>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <textarea
+
+ 
+
+                            id="message"
+
+ 
+
+                            rows="5"
+
+ 
+
+                            placeholder="Enter instructions for the community..."
+
+ 
+
+                            required
+
+ 
+
+                        ></textarea>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <!-- BUTTONS -->
+
+ 
+
+ 
+
+ 
+
+                    <div class="button-row">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <button
+
+ 
+
+                            type="submit"
+
+ 
+
+                            class="send-button"
+
+ 
+
+                        >
+
+ 
+
+                            🚨 Send Alert
+
+ 
+
+                        </button>
+
+ 
+
+ 
+
+ 
+
+                        <button
+
+ 
+
+                            type="reset"
+
+ 
+
+                            class="reset-button"
+
+ 
+
+                        >
+
+ 
+
+                            Clear
+
+ 
+
+                        </button>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                </form>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        </section>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <!-- =================================================
+
+ 
+
+             INFORMATION
+
+ 
+
+        ================================================== -->
+
+ 
+
+ 
+
+ 
+
+        <section class="section">
+
+ 
+
+ 
+
+ 
+
+            <div class="info-banner">
+
+ 
+
+ 
+
+ 
+
+                <div class="info-banner-icon">
+
+ 
+
+                    ℹ️
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+                    <h3>
+
+ 
+
+                        Before sending an alert
+
+ 
+
+                    </h3>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <p>
+
+ 
+
+                        Verify the disaster type, affected
+
+ 
+
+                        location, severity and emergency
+
+ 
+
+                        instructions before publishing
+
+ 
+
+                        the alert.
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        </section>
+
+ 
+
+ 
+
+ 
+
+                <!-- =================================================
+
+ 
+
+                    DASHBOARD STATISTICS
+
+ 
+
+                ================================================== -->
+
+ 
+
+ 
+
+ 
+
+                <section class="section">
+
+ 
+
+ 
+
+ 
+
+                    <div class="section-title">
+
+ 
+
+ 
+
+ 
+
+                        <div>
+
+ 
+
+ 
+
+ 
+
+                            <span class="small-title">
+
+ 
+
+                                DASHBOARD
+
+ 
+
+                            </span>
+
+ 
+
+ 
+
+ 
+
+                            <h2>
+
+ 
+
+                                Alert Statistics
+
+ 
+
+                            </h2>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <div class="stats-grid">
+
+ 
+
+ 
+
+ 
+
+                        <!-- Active Alerts -->
+
+ 
+
+ 
+
+ 
+
+                        <div class="stat-card">
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-icon active">
+
+ 
+
+                                🚨
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-content">
+
+ 
+
+ 
+
+ 
+
+                                <span class="stat-label">
+
+ 
+
+                                    Active Alerts
+
+ 
+
+                                </span>
+
+ 
+
+ 
+
+ 
+
+                                <strong
+
+ 
+
+                                    id="statActiveAlerts"
+
+ 
+
+                                    class="stat-number"
+
+ 
+
+                                >
+
+ 
+
+                                    0
+
+ 
+
+                                </strong>
+
+ 
+
+ 
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <!-- Resolved Alerts -->
+
+ 
+
+ 
+
+ 
+
+                        <div class="stat-card">
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-icon resolved">
+
+ 
+
+                                ✅
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-content">
+
+ 
+
+ 
+
+ 
+
+                                <span class="stat-label">
+
+ 
+
+                                    Resolved Alerts
+
+ 
+
+                                </span>
+
+ 
+
+ 
+
+ 
+
+                                <strong
+
+ 
+
+                                    id="statResolvedAlerts"
+
+ 
+
+                                    class="stat-number"
+
+ 
+
+                                >
+
+ 
+
+                                    0
+
+ 
+
+                                </strong>
+
+ 
+
+ 
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <!-- Total Alerts -->
+
+ 
+
+ 
+
+ 
+
+                        <div class="stat-card">
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-icon total">
+
+ 
+
+                                📊
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-content">
+
+ 
+
+ 
+
+ 
+
+                                <span class="stat-label">
+
+ 
+
+                                    Total Alerts
+
+ 
+
+                                </span>
+
+ 
+
+ 
+
+ 
+
+                                <strong
+
+ 
+
+                                    id="statTotalAlerts"
+
+ 
+
+                                    class="stat-number"
+
+ 
+
+                                >
+
+ 
+
+                                    0
+
+ 
+
+                                </strong>
+
+ 
+
+ 
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                        <!-- High Severity -->
+
+ 
+
+ 
+
+ 
+
+                        <div class="stat-card">
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-icon high">
+
+ 
+
+                                ⚠️
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                            <div class="stat-content">
+
+ 
+
+ 
+
+ 
+
+                                <span class="stat-label">
+
+ 
+
+                                    High Severity
+
+ 
+
+                                </span>
+
+ 
+
+ 
+
+ 
+
+                                <strong
+
+ 
+
+                                    id="statHighSeverity"
+
+ 
+
+                                    class="stat-number"
+
+ 
+
+                                >
+
+ 
+
+                                    0
+
+ 
+
+                                </strong>
+
+ 
+
+ 
+
+ 
+
+                            </div>
+
+ 
+
+ 
+
+ 
+
+                        </div>
+
+ 
+
+ 
+
+ 
+
+                    </div>
+
+ 
+
+ 
+
+ 
+
+                </section>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <!-- =================================================
+
+ 
+
+             ACTIVE ALERTS
+
+ 
+
+        ================================================== -->
+
+ 
+
+ 
+
+ 
+
+        <section class="section">
+
+ 
+
+ 
+
+ 
+
+            <div class="section-title">
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+                    <span class="small-title">
+
+ 
+
+                        LIVE CONTROL
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <h2>
+
+ 
+
+                        Active Alerts
+
+ 
+
+                    </h2>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+            <!-- =================================================
+
+ 
+
+                ALERT SEARCH & FILTERS
+
+ 
+
+            ================================================== -->
+
+ 
+
+ 
+
+ 
+
+            <div class="alert-filters">
+
+ 
+
+ 
+
+ 
+
+                <div class="filter-search">
+
+ 
+
+ 
+
+ 
+
+                    <label for="alertSearch">
+
+ 
+
+                        🔎 Search Alerts
+
+ 
+
+                    </label>
+
+ 
+
+ 
+
+ 
+
+                    <input
+
+ 
+
+                        type="text"
+
+ 
+
+                        id="alertSearch"
+
+ 
+
+                        placeholder="Search location or message..."
+
+ 
+
+                        autocomplete="off"
+
+ 
+
+                    >
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div class="filter-select">
+
+ 
+
+ 
+
+ 
+
+                    <label for="filterDisaster">
+
+ 
+
+                        Disaster Type
+
+ 
+
+                    </label>
+
+ 
+
+ 
+
+ 
+
+                    <select id="filterDisaster">
+
+ 
+
+ 
+
+ 
+
+                        <option value="all">
+
+ 
+
+                            All Disasters
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Flood">
+
+ 
+
+                            🌊 Flood
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Cyclone">
+
+ 
+
+                            🌪️ Cyclone
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Earthquake">
+
+ 
+
+                            🌍 Earthquake
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Fire">
+
+ 
+
+                            🔥 Fire
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Landslide">
+
+ 
+
+                            ⛰️ Landslide
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Tsunami">
+
+ 
+
+                            🌊 Tsunami
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                    </select>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div class="filter-select">
+
+ 
+
+ 
+
+ 
+
+                    <label for="filterSeverity">
+
+ 
+
+                        Severity
+
+ 
+
+                    </label>
+
+ 
+
+ 
+
+ 
+
+                    <select id="filterSeverity">
+
+ 
+
+ 
+
+ 
+
+                        <option value="all">
+
+ 
+
+                            All Severity
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Low">
+
+ 
+
+                            🟢 Low
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="Medium">
+
+ 
+
+                            🟠 Medium
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                        <option value="High">
+
+ 
+
+                            🔴 High
+
+ 
+
+                        </option>
+
+ 
+
+ 
+
+ 
+
+                    </select>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <button
+
+ 
+
+                    type="button"
+
+ 
+
+                    id="clearAlertFilters"
+
+ 
+
+                    class="clear-filter-button"
+
+ 
+
+                >
+
+ 
+
+                    Clear Filters
+
+ 
+
+                </button>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            <div
+
+ 
+
+                id="adminActiveAlerts"
+
+ 
+
+                class="admin-active-alerts"
+
+ 
+
+            >
+
+ 
+
+ 
+
+ 
+
+                <p class="empty-history">
+
+ 
+
+                    No active alerts.
+
+ 
+
+                </p>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        </section>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <!-- =================================================
+
+ 
+
+             ALERT HISTORY
+
+ 
+
+        ================================================== -->
+
+ 
+
+ 
+
+ 
+
+        <section class="section">
+
+ 
+
+ 
+
+ 
+
+            <div class="section-title">
+
+ 
+
+ 
+
+ 
+
+                <div>
+
+ 
+
+ 
+
+ 
+
+                    <span class="small-title">
+
+ 
+
+                        RECORDS
+
+ 
+
+                    </span>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                    <h2>
+
+ 
+
+                        Alert History
+
+ 
+
+                    </h2>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            <div class="history-header">
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <div
+
+ 
+
+                    id="alertHistory"
+
+ 
+
+                    class="history-list"
+
+ 
+
+                >
+
+ 
+
+ 
+
+ 
+
+                    <p class="empty-history">
+
+ 
+
+                        No previous alerts.
+
+ 
+
+                    </p>
+
+ 
+
+ 
+
+ 
+
+                </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+                <button
+
+ 
+
+                    type="button"
+
+ 
+
+                    class="clear-history-button"
+
+ 
+
+                    id="clearHistory"
+
+ 
+
+                >
+
+ 
+
+                    🗑️ Clear History
+
+ 
+
+                </button>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            </div>
+
+ 
+
+ 
+
+ 
+
+        </section>
+
+ 
+
+ 
+
+ 
+
+    </main>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <!-- =====================================================
+
+ 
+
+         FOOTER
+
+ 
+
+    ====================================================== -->
+
+ 
+
+ 
+
+ 
+
+    <footer>
+
+ 
+
+ 
+
+ 
+
+        <div>
+
+ 
+
+ 
+
+ 
+
+            <strong>
+
+ 
+
+                SafeGuard
+
+ 
+
+            </strong>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+            <p>
+
+ 
+
+                Emergency Management System
+
+ 
+
+            </p>
+
+ 
+
+ 
+
+ 
+
+        </div>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        <p>
+
+ 
+
+            Authorized Personnel Only
+
+ 
+
+        </p>
+
+ 
+
+ 
+
+ 
+
+    </footer>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <!-- =====================================================
+
+ 
+
+         FIREBASE
+
+ 
+
+    ====================================================== -->
+
+ 
+
+ 
+
+ 
+
+    <script
+
+ 
+
+        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-app-compat.js"
+
+ 
+
+    ></script>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <script
+
+ 
+
+        src="https://www.gstatic.com/firebasejs/12.8.0/firebase-database-compat.js"
+
+ 
+
+    ></script>
+    <script src="https://www.gstatic.com/firebasejs/12.8.0/firebase-auth-compat.js"></script>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <script>
+
+ 
+
+ 
+
+ 
+
+        const firebaseConfig = {
+
+ 
+
+ 
+
+ 
+
+            apiKey:
+
+ 
+
+                "AIzaSyCNwTeXvNskFtH5sKT4YSjk40PuWyKGoE",
+
+ 
+
+ 
+
+ 
+
+            authDomain:
+
+ 
+
+                "safeguard-disaster-system.firebaseapp.com",
+
+ 
+
+ 
+
+ 
+
+            databaseURL:
+
+ 
+
+                "https://safeguard-disaster-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+ 
+
+ 
+
+ 
+
+            projectId:
+
+ 
+
+                "safeguard-disaster-system",
+
+ 
+
+ 
+
+ 
+
+            storageBucket:
+
+ 
+
+                "safeguard-disaster-system.firebasestorage.app",
+
+ 
+
+ 
+
+ 
+
+            messagingSenderId:
+
+ 
+
+                "690746267419",
+
+ 
+
+ 
+
+ 
+
+            appId:
+
+ 
+
+                "1:690746267419:web:3b6c34e2dcd1481ceee5be"
+
+ 
+
+ 
+
+ 
+
+        };
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+        firebase.initializeApp(firebaseConfig);
+
+        // Only this Firebase Authentication UID is allowed into the admin dashboard.
+        const ADMIN_UID = "XviHAq7soBMa2wVdZXJuwNzGH1R2";
+        const adminAuth = firebase.auth();
+        window.adminAuth = adminAuth;
+        const authGate = document.getElementById("adminAuthGate");
+        const loginForm = document.getElementById("adminLoginForm");
+        const authMessage = document.getElementById("adminAuthMessage");
+        const loginButton = document.getElementById("adminLoginSubmit");
+        const logoutButton = document.getElementById("adminLogoutButton");
+
+        loginForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            authMessage.textContent = "";
+            loginButton.disabled = true;
+            loginButton.textContent = "Signing in...";
+            try {
+                const email = document.getElementById("adminLoginEmail").value.trim();
+                const password = document.getElementById("adminLoginPassword").value;
+                const result = await adminAuth.signInWithEmailAndPassword(email, password);
+                if (result.user.uid !== ADMIN_UID) {
+                    await adminAuth.signOut();
+                    throw new Error("This account is not authorized to access the SafeGuard Admin Dashboard.");
+                }
+            } catch (error) {
+                authMessage.textContent = error.message || "Unable to sign in. Check your email and password.";
+            } finally {
+                loginButton.disabled = false;
+                loginButton.textContent = "Sign In";
+            }
+        });
+
+        logoutButton.addEventListener("click", () => adminAuth.signOut());
+        adminAuth.onAuthStateChanged((user) => {
+            const authorized = Boolean(user && user.uid === ADMIN_UID);
+            if (user && !authorized) adminAuth.signOut();
+            document.body.classList.toggle("admin-auth-locked", !authorized);
+            authGate.style.display = authorized ? "none" : "flex";
+            logoutButton.style.display = authorized ? "block" : "none";
+            if (!authorized && user) authMessage.textContent = "This account is not authorized.";
+        });
+
+ 
+
+ 
+
+ 
+
+    </script>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+    <!-- =====================================================
+
+ 
+
+         MAIN JAVASCRIPT
+
+ 
+
+    ====================================================== -->
+
+ 
+
+ 
+
+ 
+
+    <script src="script.js?v=4.0.0"></script>
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+</body>
+
+ 
+
+ 
+
+ 
+
+</html>
