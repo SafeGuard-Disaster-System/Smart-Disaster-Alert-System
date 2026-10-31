@@ -1,0 +1,14 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "activeDisasterAlerts": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'XviHAq7soBMa2wVdZXJuwNzGH1R2'"
+    },
+    "alertHistory": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'XviHAq7soBMa2wVdZXJuwNzGH1R2'"
+    }
+  }
+}
